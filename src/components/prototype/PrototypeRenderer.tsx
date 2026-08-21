@@ -18,7 +18,7 @@ type Screen = "generated" | "dashboard";
 interface Props {
   schema: UISchema;
   viewMode: ViewMode;
-  resetKey?: number; // to force reset from parent
+  resetKey?: number;
 }
 
 function isPasswordField(comp: UIComponent): boolean {
@@ -36,16 +36,15 @@ function clamp(val: number, min: number, max: number) {
   return Math.min(Math.max(val, min), max);
 }
 
-/* -- Small UI primitives for generated app -- */
+/* -- Primitives for generated app – light but with #6f2c3e accent to fit #1c1c1c theme -- */
 
 function GeneratedHeading({ comp }: { comp: HeadingComponent }) {
-  // Preserve original text but style polished
   const isAllCaps = comp.text === comp.text.toUpperCase() && comp.text.length < 20;
   return (
     <div className="flex h-full w-full items-center">
       <h1
         className={`w-full text-left font-[700] tracking-[-0.02em] text-zinc-900 leading-[1.1] ${
-          isAllCaps ? "text-[28px] sm:text-[32px] tracking-[-0.02em]" : "text-[24px] sm:text-[28px]"
+          isAllCaps ? "text-[28px] sm:text-[32px]" : "text-[24px] sm:text-[28px]"
         }`}
       >
         {comp.text}
@@ -82,7 +81,7 @@ function GeneratedInput({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={label || "Enter text"}
-          className="h-[44px] w-full rounded-[12px] border border-zinc-200 bg-white px-4 text-[14px] font-[450] text-zinc-900 placeholder:text-zinc-400 shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none transition-all focus:border-zinc-900 focus:ring-[3px] focus:ring-zinc-900/10"
+          className="h-[44px] w-full rounded-[12px] border border-zinc-200 bg-white px-4 text-[14px] font-[450] text-zinc-900 placeholder:text-zinc-400 shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none transition-all focus:border-[#6f2c3e] focus:ring-[3px] focus:ring-[#6f2c3e]/15"
         />
       </div>
     </div>
@@ -102,8 +101,8 @@ function GeneratedButton({ comp, onClick }: { comp: ButtonComponent; onClick: ()
         onClick={onClick}
         className={`flex h-[44px] w-full items-center justify-center rounded-[12px] px-5 text-[14px] font-[600] tracking-[-0.01em] transition-all active:scale-[0.98] ${
           isPrimary
-            ? "bg-zinc-900 text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_0_0_1px_rgba(0,0,0,0.05)_inset] hover:bg-black"
-            : "border border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50 shadow-sm"
+            ? "bg-[#6f2c3e] text-[#f5f5f3] shadow-[0_1px_2px_rgba(0,0,0,0.2),0_0_0_1px_rgba(111,44,62,0.2)_inset] hover:bg-[#7d3346] active:bg-[#5e2534]"
+            : "border border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50 shadow-sm hover:border-[#6f2c3e]/20"
         }`}
       >
         {comp.text}
@@ -115,8 +114,8 @@ function GeneratedButton({ comp, onClick }: { comp: ButtonComponent; onClick: ()
 function GeneratedCard({ comp }: { comp: CardComponent }) {
   return (
     <div className="flex h-full w-full">
-      <div className="flex w-full flex-col rounded-[16px] border border-zinc-200 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="mb-2 h-2 w-8 rounded-full bg-zinc-100" />
+      <div className="flex w-full flex-col rounded-[16px] border border-zinc-200 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] hover:border-[#6f2c3e]/15 transition-colors">
+        <div className="mb-2 h-2 w-8 rounded-full bg-[#6f2c3e]/10" />
         <p className="text-[13px] font-[500] text-zinc-900">{comp.text || "Card content"}</p>
         <div className="mt-3 space-y-1.5">
           <div className="h-2 w-full rounded-full bg-zinc-100" />
@@ -130,7 +129,7 @@ function GeneratedCard({ comp }: { comp: CardComponent }) {
 function GeneratedImage({ comp }: { comp: ImageComponent }) {
   return (
     <div className="flex h-full w-full">
-      <div className="flex w-full items-center justify-center rounded-[14px] border border-dashed border-zinc-300 bg-zinc-50 text-zinc-400">
+      <div className="flex w-full items-center justify-center rounded-[14px] border border-dashed border-zinc-300 bg-zinc-50 text-zinc-400 hover:border-[#6f2c3e]/20 hover:text-[#6f2c3e]/60 transition-colors">
         <div className="flex flex-col items-center gap-1.5">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.3">
             <rect x="2" y="3" width="16" height="13" rx="3" />
@@ -144,12 +143,9 @@ function GeneratedImage({ comp }: { comp: ImageComponent }) {
   );
 }
 
-/* -- Dashboard demo -- */
-
 function DashboardScreen({ onBack }: { onBack?: () => void }) {
   return (
     <div className="flex min-h-full w-full flex-col bg-[#fcfcfd] p-6 sm:p-8">
-      {/* Dashboard header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h2 className="text-[26px] font-[700] tracking-[-0.02em] text-zinc-900">DASHBOARD</h2>
@@ -158,19 +154,18 @@ function DashboardScreen({ onBack }: { onBack?: () => void }) {
         {onBack && (
           <button
             onClick={onBack}
-            className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-600 hover:bg-zinc-50"
+            className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-600 hover:bg-zinc-50 hover:border-[#6f2c3e]/20 hover:text-[#6f2c3e]"
           >
-            ← Back to {/** login */}
-            prototype
+            ← Back to prototype
           </button>
         )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-[16px] border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="rounded-[16px] border border-zinc-200 bg-white p-5 shadow-sm hover:border-[#6f2c3e]/15 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold tracking-[0.12em] text-zinc-400">USERS</span>
-            <span className="flex size-6 items-center justify-center rounded-full bg-zinc-900 text-white">
+            <span className="flex size-6 items-center justify-center rounded-full bg-[#6f2c3e] text-[#f5f5f3]">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
                 <circle cx="6" cy="4" r="2" />
                 <path d="M2.5 10C2.5 8 4 6.5 6 6.5C8 6.5 9.5 8 9.5 10" strokeLinecap="round" />
@@ -178,13 +173,13 @@ function DashboardScreen({ onBack }: { onBack?: () => void }) {
             </span>
           </div>
           <p className="mt-3 text-[28px] font-[700] tracking-[-0.02em] text-zinc-900">128</p>
-          <p className="mt-1 text-[12px] text-emerald-600">↑ 12% from last week</p>
+          <p className="mt-1 text-[12px] text-[#6f2c3e]">↑ 12% from last week</p>
         </div>
 
-        <div className="rounded-[16px] border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="rounded-[16px] border border-zinc-200 bg-white p-5 shadow-sm hover:border-[#6f2c3e]/15 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold tracking-[0.12em] text-zinc-400">REVENUE</span>
-            <span className="text-[12px] font-medium text-zinc-900">$</span>
+            <span className="text-[12px] font-medium text-[#6f2c3e]">$</span>
           </div>
           <p className="mt-3 text-[28px] font-[700] tracking-[-0.02em] text-zinc-900">$4,280</p>
           <p className="mt-1 text-[12px] text-zinc-500">Last 30 days</p>
@@ -194,12 +189,15 @@ function DashboardScreen({ onBack }: { onBack?: () => void }) {
       <div className="mt-4 rounded-[16px] border border-zinc-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-[13px] font-[600] text-zinc-900">Activity</h3>
-          <span className="text-[11px] text-zinc-400">Live</span>
+          <span className="flex items-center gap-1.5 text-[11px] text-[#6f2c3e]">
+            <span className="size-1.5 rounded-full bg-[#6f2c3e] animate-pulse" />
+            Live
+          </span>
         </div>
         <div className="space-y-3">
           {[
-            { name: "Alex signed up", time: "2m ago", color: "bg-violet-500" },
-            { name: "New order #2841", time: "12m ago", color: "bg-emerald-500" },
+            { name: "Alex signed up", time: "2m ago", color: "bg-[#6f2c3e]" },
+            { name: "New order #2841", time: "12m ago", color: "bg-[#6f2c3e]/60" },
             { name: "Server backup completed", time: "1h ago", color: "bg-zinc-300" },
           ].map((item, i) => (
             <div key={i} className="flex items-center gap-3">
@@ -211,27 +209,23 @@ function DashboardScreen({ onBack }: { onBack?: () => void }) {
         </div>
       </div>
 
-      <div className="mt-6 rounded-[12px] bg-zinc-900 px-4 py-3 text-[12px] leading-[1.5] text-zinc-300">
-        <span className="font-semibold text-white">Demo:</span> This dashboard proves button actions work. Clicking <span className="font-mono text-white/80">SIGN IN → dashboard</span> triggers navigation in the generated prototype.
+      <div className="mt-6 rounded-[12px] bg-[#1c1c1c] border border-[#6f2c3e]/20 px-4 py-3 text-[12px] leading-[1.5] text-[#a8a8a3]">
+        <span className="font-semibold text-[#f5f5f3]">Demo:</span> This dashboard proves button actions work. Clicking <span className="font-mono text-[#f5f5f3]/80">SIGN IN → dashboard</span> triggers navigation in the generated prototype.
       </div>
     </div>
   );
 }
 
-/* -- Main renderer -- */
-
 export function PrototypeRenderer({ schema, viewMode, resetKey }: Props) {
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [screen, setScreen] = useState<Screen>("generated");
 
-  // Reset when resetKey changes or schema changes
   React.useEffect(() => {
     setInputs({});
     setScreen("generated");
   }, [schema, resetKey]);
 
   const components = useMemo(() => {
-    // Sort by y then x for sensible tab order but preserve original for positioning
     return [...schema.screen.components].sort((a, b) => a.y - b.y || a.x - b.x);
   }, [schema]);
 
@@ -243,8 +237,6 @@ export function PrototypeRenderer({ schema, viewMode, resetKey }: Props) {
     if (comp.action && comp.action.toLowerCase().includes("dashboard")) {
       setScreen("dashboard");
     } else {
-      // For demo, show subtle feedback. Could toast.
-      // For other buttons, do nothing or could show action name.
       console.log("[Prototype] Button clicked:", comp.id, comp.action);
     }
   };
@@ -253,7 +245,7 @@ export function PrototypeRenderer({ schema, viewMode, resetKey }: Props) {
     return (
       <div
         className={`mx-auto flex w-full flex-1 flex-col bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_8px_40px_rgba(0,0,0,0.08)] ${
-          viewMode === "mobile" ? "max-w-[390px] rounded-[24px] overflow-hidden" : "max-w-full"
+          viewMode === "mobile" ? "max-w-[390px] rounded-[24px] overflow-hidden border border-zinc-200" : "max-w-full"
         }`}
       >
         <DashboardScreen onBack={() => setScreen("generated")} />
@@ -261,9 +253,6 @@ export function PrototypeRenderer({ schema, viewMode, resetKey }: Props) {
     );
   }
 
-  // Generated app screen
-  // Canvas with fixed logical 1000x1000, but rendered via percentages
-  // Height: desktop 800, mobile 740, overflow auto if needed
   const canvasHeight = viewMode === "mobile" ? 700 : 800;
 
   return (
@@ -274,35 +263,27 @@ export function PrototypeRenderer({ schema, viewMode, resetKey }: Props) {
           : "max-w-full"
       }`}
     >
-      {/* App chrome - subtle top bar to make it feel like real app */}
       <div className="flex h-11 items-center justify-between border-b border-zinc-100 bg-white/80 px-4 backdrop-blur">
         <div className="flex items-center gap-2">
-          <div className="size-5 rounded-[6px] bg-zinc-900 flex items-center justify-center text-[9px] font-bold text-white">A</div>
+          <div className="size-5 rounded-[6px] bg-[#6f2c3e] flex items-center justify-center text-[9px] font-bold text-[#f5f5f3]">A</div>
           <span className="text-[12px] font-[600] tracking-[-0.01em] text-zinc-700">{schema.screen.name || "App"}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="size-1.5 rounded-full bg-zinc-200" />
-          <div className="size-1.5 rounded-full bg-zinc-200" />
-          <div className="size-1.5 rounded-full bg-zinc-200" />
+          <div className="size-1.5 rounded-full bg-[#6f2c3e]/30" />
+          <div className="size-1.5 rounded-full bg-[#6f2c3e]/20" />
+          <div className="size-1.5 rounded-full bg-[#6f2c3e]/10" />
         </div>
       </div>
 
-      {/* Canvas */}
-      <div
-        className="relative w-full overflow-auto bg-[#fcfcfd]"
-        style={{ height: canvasHeight }}
-      >
-        {/* Subtle dot grid for polish */}
+      <div className="relative w-full overflow-auto bg-[#fcfcfd]" style={{ height: canvasHeight }}>
         <div className="pointer-events-none absolute inset-0 opacity-[0.03] bg-[radial-gradient(rgba(0,0,0,0.8)_1px,transparent_1px)] bg-[size:20px_20px]" />
 
         {components.map((comp) => {
-          // Compute % based on 1000 system
           const left = clamp((comp.x / 1000) * 100, 0, 90);
           const top = clamp((comp.y / 1000) * 100, 0, 95);
           const width = clamp((comp.width / 1000) * 100, 10, 95);
           const height = clamp((comp.height / 1000) * 100, 4, 60);
 
-          // Minimum pixel sizes for usability
           const minWidthPx = comp.type === "heading" || comp.type === "text" ? 120 : 140;
           const minHeightPx = comp.type === "input" || comp.type === "button" ? 44 : 24;
 
@@ -337,7 +318,6 @@ export function PrototypeRenderer({ schema, viewMode, resetKey }: Props) {
           );
         })}
 
-        {/* If no components (shouldn't happen due to validation) */}
         {components.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-sm text-zinc-400">No components</p>
@@ -345,10 +325,9 @@ export function PrototypeRenderer({ schema, viewMode, resetKey }: Props) {
         )}
       </div>
 
-      {/* Bottom hint */}
       <div className="border-t border-zinc-100 bg-white px-4 py-2 text-[11px] text-zinc-400 flex items-center justify-between">
         <span>{components.length} components • {schema.screen.name}</span>
-        <span className="hidden sm:inline">Inputs are live • Buttons → dashboard</span>
+        <span className="hidden sm:inline">Inputs are live • Buttons → dashboard • accent #6f2c3e</span>
       </div>
     </div>
   );
