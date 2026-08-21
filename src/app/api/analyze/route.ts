@@ -4,8 +4,8 @@ import { validateUISchema } from "@/lib/ui-schema";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
-// Free model router via OpenRouter – supports vision + JSON mode, no paid credits required for hackathon demo
-const MODEL_FALLBACK = "openrouter/free";
+// Dots3-Note Preview via OpenRouter – free vision model for Aug 22 hackathon demo, supports image input + JSON mode
+const MODEL_FALLBACK = "dots-studio/dots-3-note-preview:free";
 
 export const runtime = "nodejs"; // Need Buffer and more memory
 export const maxDuration = 60; // Vercel max
