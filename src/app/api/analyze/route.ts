@@ -4,7 +4,8 @@ import { validateUISchema } from "@/lib/ui-schema";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
-const MODEL_FALLBACK = "gpt-4o-mini";
+// Vision-capable model via OpenRouter – gpt-4o-mini supports images and JSON mode
+const MODEL_FALLBACK = "openai/gpt-4o-mini";
 
 export const runtime = "nodejs"; // Need Buffer and more memory
 export const maxDuration = 60; // Vercel max
@@ -47,13 +48,13 @@ function extractJson(content: string): unknown {
 
 export async function POST(req: NextRequest) {
   try {
-    // Check API key
-    const apiKey = process.env.OPENAI_API_KEY;
+    // Check API key – OpenRouter
+    const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
         {
           error:
-            "AI service not configured. Missing OPENAI_API_KEY. Add it to .env.local and restart the server.",
+            "AI service not configured. Missing OPENROUTER_API_KEY. Add it to .env.local and restart the server.",
           code: "MISSING_API_KEY",
         },
         { status: 500 }
@@ -77,12 +78,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate file type
-    // File might not have type in some browsers, also check extension fallback
     const fileType = (file as File).type || "";
     const fileName = (file as File).name || "";
 
     if (fileType && !ALLOWED_TYPES.includes(fileType)) {
-      // Allow jpg variant
       if (!fileType.startsWith("image/")) {
         return NextResponse.json(
           {
@@ -94,7 +93,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Basic extension check for safety
     const lowerName = fileName.toLowerCase();
     const hasValidExt =
       lowerName.endsWith(".png") ||
@@ -132,17 +130,24 @@ export async function POST(req: NextRequest) {
     const mime = fileType || "image/png";
     const dataUrl = `data:${mime};base64,${base64}`;
 
-    // Call OpenAI
+    // Call OpenRouter (OpenAI-compatible)
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 28000);
 
     let aiResponse: Response;
     try {
-      aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+      aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
+          // Optional headers for OpenRouter ranking – safe to include if site env is set
+          ...(process.env.OPENROUTER_SITE_URL
+            ? { "HTTP-Referer": process.env.OPENROUTER_SITE_URL }
+            : {}),
+          ...(process.env.OPENROUTER_APP_NAME
+            ? { "X-Title": process.env.OPENROUTER_APP_NAME }
+            : { "X-Title": "INK UI" }),
         },
         body: JSON.stringify({
           model,
@@ -193,10 +198,10 @@ export async function POST(req: NextRequest) {
 
     if (!aiResponse.ok) {
       const text = await aiResponse.text().catch(() => "");
-      console.error("[analyze] OpenAI error", aiResponse.status, text.slice(0, 500));
+      console.error("[analyze] OpenRouter error", aiResponse.status, text.slice(0, 500));
       if (aiResponse.status === 401) {
         return NextResponse.json(
-          { error: "AI service authentication failed. Check API key.", code: "AUTH_FAILED" },
+          { error: "AI service authentication failed. Check OPENROUTER_API_KEY.", code: "AUTH_FAILED" },
           { status: 500 }
         );
       }
