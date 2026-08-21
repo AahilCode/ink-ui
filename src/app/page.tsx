@@ -104,61 +104,61 @@ export default function Home() {
   const isAnalyzing = status === "analyzing";
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#1c1c1c]">
+    <div className="flex min-h-screen flex-col bg-[#13111e]">
       <Header />
 
-      {/* Hero / Intro */}
-      <div className="relative border-b border-[#2a2a2a]">
+      {/* Hero / Intro – dark with purple → teal gradients */}
+      <div className="relative border-b border-[#3E3E75]/30">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-[-10%] top-[-40%] h-[600px] w-[600px] rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,rgba(111,44,62,0.14),transparent_70%)] blur-[1px]" />
-          <div className="absolute right-[-10%] top-[-30%] h-[700px] w-[700px] rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,rgba(111,44,62,0.08),transparent_70%)]" />
-          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_0%,rgba(28,28,28,0.6)_80%,#1c1c1c_100%)]" />
+          <div className="absolute left-[-10%] top-[-40%] h-[600px] w-[600px] rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,rgba(78,31,110,0.22),transparent_70%)] blur-[1px]" />
+          <div className="absolute right-[-5%] top-[-30%] h-[700px] w-[700px] rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,rgba(69,169,169,0.14),transparent_70%)]" />
+          <div className="absolute left-[30%] top-[10%] h-[500px] w-[500px] rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,rgba(152,232,222,0.06),transparent_70%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_0%,rgba(19,17,30,0.6)_80%,#13111e_100%)]" />
         </div>
 
         <div className="relative mx-auto max-w-[1600px] px-5 sm:px-8 py-10 sm:py-14">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-[720px]">
               <div className="mb-5 flex items-center gap-3">
-                <div className="inline-flex items-center gap-2 rounded-full border border-[#2e2e2e] bg-[#242424] px-3 py-1 backdrop-blur">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#3E3E75]/40 bg-[#1d1b2a] px-3 py-1 backdrop-blur">
                   <span className="relative flex size-2">
-                    <span className="absolute inline-flex size-2 animate-ping rounded-full bg-[#6f2c3e]/60" />
-                    <span className="relative inline-flex size-2 rounded-full bg-[#6f2c3e]" />
+                    <span className="absolute inline-flex size-2 animate-ping rounded-full bg-[#45A9A9]/60" />
+                    <span className="relative inline-flex size-2 rounded-full bg-[#45A9A9]" />
                   </span>
-                  <span className="text-[11px] font-medium tracking-[0.14em] text-[#f5f5f3]/70">WORKSPACE v0.4 • CAMERA LIVE</span>
+                  <span className="text-[11px] font-medium tracking-[0.14em] text-[#f0eef6]/80">WORKSPACE • GEMINI 3.5 • FREE</span>
                 </div>
-                <span className="text-[11px] tracking-wide text-[#a8a8a3]/60">Upload → AI → Prototype</span>
+                <span className="text-[11px] tracking-wide text-[#a8a6b8]/60">Camera → AI → Prototype</span>
               </div>
 
-              <h1 className="text-pretty text-[34px] sm:text-[52px] font-[620] leading-[0.95] tracking-[-0.03em] text-[#f5f5f3]">
+              <h1 className="text-pretty text-[34px] sm:text-[52px] font-[650] leading-[0.95] tracking-[-0.03em] text-[#f0eef6]">
                 INK UI
                 <br />
-                <span className="bg-gradient-to-b from-[#f5f5f3] to-[#a8a8a3] bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-[#4E1F6E] via-[#45A9A9] to-[#98E8DE] bg-clip-text text-transparent">
                   From sketch to interactive.
                 </span>
               </h1>
 
-              <p className="mt-4 max-w-[520px] text-pretty text-[15px] sm:text-[17px] leading-[1.6] tracking-[-0.01em] text-[#a8a8a3]">
+              <p className="mt-4 max-w-[520px] text-pretty text-[15px] sm:text-[17px] leading-[1.6] tracking-[-0.01em] text-[#a8a6b8]">
                 Turn a hand-drawn interface into a working prototype.
-                <span className="text-[#a8a8a3]/60"> Photograph your sketch, let AI understand it, and get a live UI.</span>
+                <span className="text-[#a8a6b8]/60"> Photograph your sketch, let AI understand it, and get a live UI.</span>
               </p>
             </div>
 
             <div className="hidden lg:flex flex-col items-end gap-3">
-              <div className="flex items-center gap-2 rounded-full border border-[#2e2e2e] bg-[#242424] px-3 py-1.5">
-                <kbd className="rounded bg-[#2e2e2e] px-1.5 py-0.5 font-mono text-[10px] text-[#a8a8a3]">⌘</kbd>
-                <kbd className="rounded bg-[#2e2e2e] px-1.5 py-0.5 font-mono text-[10px] text-[#a8a8a3]">U</kbd>
-                <span className="ml-1 text-[11px] text-[#a8a8a3]/70">Upload</span>
+              <div className="flex items-center gap-2 rounded-full border border-[#3E3E75]/30 bg-[#1d1b2a] px-3 py-1.5">
+                <kbd className="rounded bg-[#2d2b42] px-1.5 py-0.5 font-mono text-[10px] text-[#98E8DE]">⌘</kbd>
+                <kbd className="rounded bg-[#2d2b42] px-1.5 py-0.5 font-mono text-[10px] text-[#98E8DE]">U</kbd>
+                <span className="ml-1 text-[11px] text-[#a8a6b8]/70">Upload</span>
               </div>
-              <div className="text-right text-[11px] leading-[1.4] text-[#a8a8a3]/40">
-                <div>Hackathon demo • Gemini 3.5 Flash Lite</div>
-                <div>Theme: #1c1c1c + #6f2c3e</div>
+              <div className="text-right text-[11px] leading-[1.4] text-[#a8a6b8]/40">
+                <div>Hackathon • #4E1F6E #3E3E75 #45A9A9 #98E8DE</div>
+                <div>Gemini 3.5 Flash Lite • Free tier</div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Workspace */}
       <main className="mx-auto w-full max-w-[1600px] flex-1 px-3 sm:px-6 md:px-8 py-5 sm:py-8">
         <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">
           <SketchPanel
@@ -176,7 +176,7 @@ export default function Home() {
         <AnalyzeButton disabled={!hasImage || isAnalyzing} isAnalyzing={isAnalyzing} hasImage={hasImage} onClick={handleAnalyze} />
 
         {error && status !== "error" && (
-          <div className="mx-auto mt-2 max-w-[520px] rounded-[12px] border border-[#6f2c3e]/30 bg-[#6f2c3e]/15 px-4 py-3 text-center text-[12px] text-[#f5f5f3]">
+          <div className="mx-auto mt-2 max-w-[520px] rounded-[12px] border border-[#4E1F6E]/30 bg-[#4E1F6E]/15 px-4 py-3 text-center text-[12px] text-[#f0eef6]">
             {error}
           </div>
         )}
@@ -184,15 +184,15 @@ export default function Home() {
 
       <HowItWorks />
 
-      <footer id="about" className="border-t border-[#2a2a2a] py-8">
+      <footer id="about" className="border-t border-[#3E3E75]/30 py-8">
         <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-5 sm:px-8 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="size-6 rounded-[7px] bg-[#6f2c3e] text-[#f5f5f3] flex items-center justify-center text-[10px] font-bold">INK</div>
-            <span className="text-[12.5px] tracking-[-0.01em] text-[#a8a8a3]/70">
-              INK UI • © {new Date().getFullYear()} • #1c1c1c + #6f2c3e • Gemini 3.5 Flash Lite
+            <div className="size-6 rounded-[7px] bg-gradient-to-br from-[#4E1F6E] to-[#45A9A9] text-[#f0eef6] flex items-center justify-center text-[10px] font-bold">INK</div>
+            <span className="text-[12.5px] tracking-[-0.01em] text-[#a8a6b8]/70">
+              INK UI • © {new Date().getFullYear()} • #4E1F6E #3E3E75 #45A9A9 #98E8DE • Gemini 3.5
             </span>
           </div>
-          <div className="flex items-center gap-4 text-[12px] text-[#a8a8a3]/40">
+          <div className="flex items-center gap-4 text-[12px] text-[#a8a6b8]/40">
             <span className="hidden sm:inline">Image in memory only</span>
             <span className="hidden sm:inline">•</span>
             <span>API: POST /api/analyze</span>

@@ -36,8 +36,6 @@ function clamp(val: number, min: number, max: number) {
   return Math.min(Math.max(val, min), max);
 }
 
-/* -- Primitives for generated app – light but with #6f2c3e accent to fit #1c1c1c theme -- */
-
 function GeneratedHeading({ comp }: { comp: HeadingComponent }) {
   const isAllCaps = comp.text === comp.text.toUpperCase() && comp.text.length < 20;
   return (
@@ -81,7 +79,7 @@ function GeneratedInput({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={label || "Enter text"}
-          className="h-[44px] w-full rounded-[12px] border border-zinc-200 bg-white px-4 text-[14px] font-[450] text-zinc-900 placeholder:text-zinc-400 shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none transition-all focus:border-[#6f2c3e] focus:ring-[3px] focus:ring-[#6f2c3e]/15"
+          className="h-[44px] w-full rounded-[12px] border border-zinc-200 bg-white px-4 text-[14px] font-[450] text-zinc-900 placeholder:text-zinc-400 shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none transition-all focus:border-[#4E1F6E] focus:ring-[3px] focus:ring-[#4E1F6E]/15"
         />
       </div>
     </div>
@@ -101,8 +99,8 @@ function GeneratedButton({ comp, onClick }: { comp: ButtonComponent; onClick: ()
         onClick={onClick}
         className={`flex h-[44px] w-full items-center justify-center rounded-[12px] px-5 text-[14px] font-[600] tracking-[-0.01em] transition-all active:scale-[0.98] ${
           isPrimary
-            ? "bg-[#6f2c3e] text-[#f5f5f3] shadow-[0_1px_2px_rgba(0,0,0,0.2),0_0_0_1px_rgba(111,44,62,0.2)_inset] hover:bg-[#7d3346] active:bg-[#5e2534]"
-            : "border border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50 shadow-sm hover:border-[#6f2c3e]/20"
+            ? "bg-[#4E1F6E] text-[#f0eef6] shadow-[0_1px_2px_rgba(0,0,0,0.2),0_0_0_1px_rgba(78,31,110,0.2)_inset,0_0_12px_rgba(78,31,110,0.25)] hover:bg-[#5e2585] active:bg-[#3d1856]"
+            : "border border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50 shadow-sm hover:border-[#45A9A9]/30 hover:text-[#3E3E75]"
         }`}
       >
         {comp.text}
@@ -114,8 +112,8 @@ function GeneratedButton({ comp, onClick }: { comp: ButtonComponent; onClick: ()
 function GeneratedCard({ comp }: { comp: CardComponent }) {
   return (
     <div className="flex h-full w-full">
-      <div className="flex w-full flex-col rounded-[16px] border border-zinc-200 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] hover:border-[#6f2c3e]/15 transition-colors">
-        <div className="mb-2 h-2 w-8 rounded-full bg-[#6f2c3e]/10" />
+      <div className="flex w-full flex-col rounded-[16px] border border-zinc-200 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] hover:border-[#45A9A9]/20 transition-colors">
+        <div className="mb-2 h-2 w-8 rounded-full bg-gradient-to-r from-[#4E1F6E]/20 to-[#45A9A9]/20" />
         <p className="text-[13px] font-[500] text-zinc-900">{comp.text || "Card content"}</p>
         <div className="mt-3 space-y-1.5">
           <div className="h-2 w-full rounded-full bg-zinc-100" />
@@ -129,7 +127,7 @@ function GeneratedCard({ comp }: { comp: CardComponent }) {
 function GeneratedImage({ comp }: { comp: ImageComponent }) {
   return (
     <div className="flex h-full w-full">
-      <div className="flex w-full items-center justify-center rounded-[14px] border border-dashed border-zinc-300 bg-zinc-50 text-zinc-400 hover:border-[#6f2c3e]/20 hover:text-[#6f2c3e]/60 transition-colors">
+      <div className="flex w-full items-center justify-center rounded-[14px] border border-dashed border-zinc-300 bg-zinc-50 text-zinc-400 hover:border-[#45A9A9]/30 hover:text-[#45A9A9]/60 transition-colors">
         <div className="flex flex-col items-center gap-1.5">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.3">
             <rect x="2" y="3" width="16" height="13" rx="3" />
@@ -154,7 +152,7 @@ function DashboardScreen({ onBack }: { onBack?: () => void }) {
         {onBack && (
           <button
             onClick={onBack}
-            className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-600 hover:bg-zinc-50 hover:border-[#6f2c3e]/20 hover:text-[#6f2c3e]"
+            className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-600 hover:bg-zinc-50 hover:border-[#4E1F6E]/20 hover:text-[#4E1F6E]"
           >
             ← Back to prototype
           </button>
@@ -162,10 +160,10 @@ function DashboardScreen({ onBack }: { onBack?: () => void }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-[16px] border border-zinc-200 bg-white p-5 shadow-sm hover:border-[#6f2c3e]/15 transition-colors">
+        <div className="rounded-[16px] border border-zinc-200 bg-white p-5 shadow-sm hover:border-[#4E1F6E]/15 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold tracking-[0.12em] text-zinc-400">USERS</span>
-            <span className="flex size-6 items-center justify-center rounded-full bg-[#6f2c3e] text-[#f5f5f3]">
+            <span className="flex size-6 items-center justify-center rounded-full bg-gradient-to-br from-[#4E1F6E] to-[#3E3E75] text-[#f0eef6]">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
                 <circle cx="6" cy="4" r="2" />
                 <path d="M2.5 10C2.5 8 4 6.5 6 6.5C8 6.5 9.5 8 9.5 10" strokeLinecap="round" />
@@ -173,13 +171,15 @@ function DashboardScreen({ onBack }: { onBack?: () => void }) {
             </span>
           </div>
           <p className="mt-3 text-[28px] font-[700] tracking-[-0.02em] text-zinc-900">128</p>
-          <p className="mt-1 text-[12px] text-[#6f2c3e]">↑ 12% from last week</p>
+          <p className="mt-1 text-[12px] text-[#45A9A9]">↑ 12% from last week</p>
         </div>
 
-        <div className="rounded-[16px] border border-zinc-200 bg-white p-5 shadow-sm hover:border-[#6f2c3e]/15 transition-colors">
+        <div className="rounded-[16px] border border-zinc-200 bg-white p-5 shadow-sm hover:border-[#45A9A9]/20 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold tracking-[0.12em] text-zinc-400">REVENUE</span>
-            <span className="text-[12px] font-medium text-[#6f2c3e]">$</span>
+            <span className="flex size-6 items-center justify-center rounded-full bg-[#45A9A9]/15 text-[#45A9A9]">
+              <span className="text-[12px] font-bold">$</span>
+            </span>
           </div>
           <p className="mt-3 text-[28px] font-[700] tracking-[-0.02em] text-zinc-900">$4,280</p>
           <p className="mt-1 text-[12px] text-zinc-500">Last 30 days</p>
@@ -189,15 +189,15 @@ function DashboardScreen({ onBack }: { onBack?: () => void }) {
       <div className="mt-4 rounded-[16px] border border-zinc-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-[13px] font-[600] text-zinc-900">Activity</h3>
-          <span className="flex items-center gap-1.5 text-[11px] text-[#6f2c3e]">
-            <span className="size-1.5 rounded-full bg-[#6f2c3e] animate-pulse" />
+          <span className="flex items-center gap-1.5 text-[11px] text-[#45A9A9]">
+            <span className="size-1.5 rounded-full bg-[#45A9A9] animate-pulse shadow-[0_0_6px_rgba(69,169,169,0.5)]" />
             Live
           </span>
         </div>
         <div className="space-y-3">
           {[
-            { name: "Alex signed up", time: "2m ago", color: "bg-[#6f2c3e]" },
-            { name: "New order #2841", time: "12m ago", color: "bg-[#6f2c3e]/60" },
+            { name: "Alex signed up", time: "2m ago", color: "bg-[#4E1F6E]" },
+            { name: "New order #2841", time: "12m ago", color: "bg-[#45A9A9]" },
             { name: "Server backup completed", time: "1h ago", color: "bg-zinc-300" },
           ].map((item, i) => (
             <div key={i} className="flex items-center gap-3">
@@ -209,8 +209,8 @@ function DashboardScreen({ onBack }: { onBack?: () => void }) {
         </div>
       </div>
 
-      <div className="mt-6 rounded-[12px] bg-[#1c1c1c] border border-[#6f2c3e]/20 px-4 py-3 text-[12px] leading-[1.5] text-[#a8a8a3]">
-        <span className="font-semibold text-[#f5f5f3]">Demo:</span> This dashboard proves button actions work. Clicking <span className="font-mono text-[#f5f5f3]/80">SIGN IN → dashboard</span> triggers navigation in the generated prototype.
+      <div className="mt-6 rounded-[12px] bg-gradient-to-r from-[#4E1F6E] to-[#3E3E75] px-4 py-3 text-[12px] leading-[1.5] text-[#f0eef6] border border-[#98E8DE]/20">
+        <span className="font-semibold text-[#98E8DE]">Demo:</span> This dashboard proves button actions work. Clicking <span className="font-mono text-[#f0eef6]">SIGN IN → dashboard</span> triggers navigation.
       </div>
     </div>
   );
@@ -265,13 +265,13 @@ export function PrototypeRenderer({ schema, viewMode, resetKey }: Props) {
     >
       <div className="flex h-11 items-center justify-between border-b border-zinc-100 bg-white/80 px-4 backdrop-blur">
         <div className="flex items-center gap-2">
-          <div className="size-5 rounded-[6px] bg-[#6f2c3e] flex items-center justify-center text-[9px] font-bold text-[#f5f5f3]">A</div>
+          <div className="size-5 rounded-[6px] bg-gradient-to-br from-[#4E1F6E] to-[#45A9A9] flex items-center justify-center text-[9px] font-bold text-white">A</div>
           <span className="text-[12px] font-[600] tracking-[-0.01em] text-zinc-700">{schema.screen.name || "App"}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="size-1.5 rounded-full bg-[#6f2c3e]/30" />
-          <div className="size-1.5 rounded-full bg-[#6f2c3e]/20" />
-          <div className="size-1.5 rounded-full bg-[#6f2c3e]/10" />
+          <div className="size-1.5 rounded-full bg-[#4E1F6E]/30" />
+          <div className="size-1.5 rounded-full bg-[#45A9A9]/40" />
+          <div className="size-1.5 rounded-full bg-[#98E8DE]/50" />
         </div>
       </div>
 
@@ -327,7 +327,7 @@ export function PrototypeRenderer({ schema, viewMode, resetKey }: Props) {
 
       <div className="border-t border-zinc-100 bg-white px-4 py-2 text-[11px] text-zinc-400 flex items-center justify-between">
         <span>{components.length} components • {schema.screen.name}</span>
-        <span className="hidden sm:inline">Inputs are live • Buttons → dashboard • accent #6f2c3e</span>
+        <span className="hidden sm:inline text-[#45A9A9]">Inputs live • Buttons → dashboard</span>
       </div>
     </div>
   );

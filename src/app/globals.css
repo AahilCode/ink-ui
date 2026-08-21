@@ -11,28 +11,46 @@
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-muted: var(--muted);
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-active: var(--accent-active);
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-accent-teal: var(--accent-teal);
+  --color-accent-light: var(--accent-light);
 }
 
 :root {
-  --background: #1c1c1c;
-  --foreground: #f5f5f3;
-  --surface: #242424;
-  --surface-2: #2a2a2a;
-  --surface-3: #2e2e2e;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --muted: #a8a8a3;
-  --muted-2: #7a7a76;
-  --accent: #6f2c3e;
-  --accent-hover: #7d3346;
-  --accent-active: #5e2534;
-  --accent-light: #8a3a4f;
-  --accent-muted: rgba(111, 44, 62, 0.18);
-  --accent-border: rgba(111, 44, 62, 0.38);
-  --accent-glow: rgba(111, 44, 62, 0.35);
+  /* Core 4-color palette */
+  --primary-dark-purple: #4E1F6E;
+  --secondary-purple: #3E3E75;
+  --primary-teal: #45A9A9;
+  --light-teal: #98E8DE;
+
+  /* Derived dark neutrals around palette - keep UI dark & readable */
+  --background: #13111e; /* deep dark with purple tint */
+  --foreground: #f0eef6; /* highly readable light */
+  --surface: #1d1b2a; /* cards/panels - slightly lighter than bg, purple-tinged */
+  --surface-2: #242236; /* secondary surfaces */
+  --surface-3: #2d2b42; /* tertiary, borders strong */
+
+  --border: rgba(62, 62, 117, 0.28); /* #3E3E75 with opacity */
+  --border-strong: rgba(62, 62, 117, 0.48);
+
+  --muted: #a8a6b8;
+  --muted-2: #7a7890;
+
+  --accent-primary: #4E1F6E;
+  --accent-primary-hover: #5e2585;
+  --accent-primary-active: #3d1856;
+  --accent-secondary: #3E3E75;
+  --accent-secondary-hover: #4a4a8a;
+  --accent-teal: #45A9A9;
+  --accent-teal-hover: #55bebe;
+  --accent-light: #98E8DE;
+
+  --accent-primary-muted: rgba(78, 31, 110, 0.18);
+  --accent-primary-border: rgba(78, 31, 110, 0.38);
+  --accent-teal-muted: rgba(69, 169, 169, 0.18);
+  --accent-teal-border: rgba(69, 169, 169, 0.32);
+  --accent-light-muted: rgba(152, 232, 222, 0.12);
 }
 
 * {
@@ -42,7 +60,7 @@
 html {
   height: 100%;
   scrollbar-width: thin;
-  scrollbar-color: rgba(111,44,62,0.35) #1c1c1c;
+  scrollbar-color: rgba(69,169,169,0.35) #13111e;
 }
 
 body {
@@ -58,31 +76,43 @@ body {
   letter-spacing: -0.011em;
 }
 
-/* Subtle selection with accent */
+/* Selection with primary purple + light teal glow */
 ::selection {
-  background: rgba(111,44,62,0.35);
-  color: #f5f5f3;
+  background: rgba(78,31,110,0.35);
+  color: #f0eef6;
 }
 
-/* Focus ring with accent */
+/* Focus ring with teal for accessibility */
 :focus-visible {
-  outline: 2px solid #6f2c3e;
+  outline: 2px solid #45A9A9;
   outline-offset: 2px;
 }
 
-/* Grid pattern utility - derived from #1c1c1c */
+/* Grid pattern - derived from secondary purple */
 .grid-pattern {
   background-image:
-    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    linear-gradient(rgba(62,62,117,0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(62,62,117,0.12) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
 .dots-pattern {
-  background-image: radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(62,62,117,0.35) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
 .accent-glow {
-  background: radial-gradient(50% 50% at 50% 50%, rgba(111,44,62,0.18), transparent 70%);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(78,31,110,0.22), transparent 70%);
+}
+
+.teal-glow {
+  background: radial-gradient(50% 50% at 50% 50%, rgba(69,169,169,0.18), transparent 70%);
+}
+
+.purple-teal-gradient {
+  background: linear-gradient(135deg, #4E1F6E 0%, #3E3E75 50%, #45A9A9 100%);
+}
+
+.purple-teal-gradient-subtle {
+  background: linear-gradient(135deg, rgba(78,31,110,0.15) 0%, rgba(62,62,117,0.12) 50%, rgba(69,169,169,0.10) 100%);
 }
