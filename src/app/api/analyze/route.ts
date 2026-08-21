@@ -5,8 +5,8 @@ import { validateUISchema } from "@/lib/ui-schema";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
-// Free-tier vision-capable Gemini model for hackathon demo
-const MODEL = "gemini-2.5-flash-lite";
+// Free-tier vision-capable Gemini model for hackathon demo – updated to 3.5 per API deprecation notice
+const MODEL = "gemini-3.5-flash-lite";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Allow override via env for flexibility, but default is gemini-2.5-flash-lite
+    // Allow override via env for flexibility, but default is gemini-3.5-flash-lite
     const modelName = process.env.AI_MODEL || MODEL;
 
     let formData: FormData;
