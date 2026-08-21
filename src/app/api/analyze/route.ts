@@ -4,8 +4,8 @@ import { validateUISchema } from "@/lib/ui-schema";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
-// Vision-capable model via OpenRouter – gpt-4o-mini supports images and JSON mode
-const MODEL_FALLBACK = "openai/gpt-4o-mini";
+// Free model router via OpenRouter – supports vision + JSON mode, no paid credits required for hackathon demo
+const MODEL_FALLBACK = "openrouter/free";
 
 export const runtime = "nodejs"; // Need Buffer and more memory
 export const maxDuration = 60; // Vercel max
