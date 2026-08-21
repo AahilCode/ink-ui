@@ -1,26 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { SYSTEM_PROMPT, USER_INSTRUCTION } from "@/lib/prompt";
 import { validateUISchema } from "@/lib/ui-schema";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
-// Dots3-Note Preview via OpenRouter – free vision model for Aug 22 hackathon demo, supports image input + JSON mode
-const MODEL_FALLBACK = "dots-studio/dots-3-note-preview:free";
+// Free-tier vision-capable Gemini model for hackathon demo
+const MODEL = "gemini-2.5-flash-lite";
 
-export const runtime = "nodejs"; // Need Buffer and more memory
-export const maxDuration = 60; // Vercel max
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function extractJson(content: string): unknown {
   const trimmed = content.trim();
 
-  // Try direct parse
   try {
     return JSON.parse(trimmed);
   } catch {
     // continue
   }
 
-  // Try stripping markdown code fences
   const fenceRegex = /```(?:json)?\s*([\s\S]*?)\s*```/i;
   const match = trimmed.match(fenceRegex);
   if (match) {
@@ -31,7 +30,6 @@ function extractJson(content: string): unknown {
     }
   }
 
-  // Try find first { ... last } 
   const first = trimmed.indexOf("{");
   const last = trimmed.lastIndexOf("}");
   if (first !== -1 && last !== -1 && last > first) {
@@ -48,36 +46,40 @@ function extractJson(content: string): unknown {
 
 export async function POST(req: NextRequest) {
   try {
-    // Check API key – OpenRouter
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
         {
           error:
-            "AI service not configured. Missing OPENROUTER_API_KEY. Add it to .env.local and restart the server.",
+            "AI service not configured. Missing GEMINI_API_KEY. Add it to .env.local and restart the server.",
           code: "MISSING_API_KEY",
         },
         { status: 500 }
       );
     }
 
-    const model = process.env.AI_MODEL || MODEL_FALLBACK;
+    // Allow override via env for flexibility, but default is gemini-2.5-flash-lite
+    const modelName = process.env.AI_MODEL || MODEL;
 
-    // Parse formData
     let formData: FormData;
     try {
       formData = await req.formData();
     } catch {
-      return NextResponse.json({ error: "Invalid request format. Expected multipart/form-data." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid request format. Expected multipart/form-data." },
+        { status: 400 }
+      );
     }
 
     const file = formData.get("image") as unknown as File | null;
 
     if (!file) {
-      return NextResponse.json({ error: "No sketch selected. Please upload a PNG or JPG." }, { status: 400 });
+      return NextResponse.json(
+        { error: "No sketch selected. Please upload a PNG or JPG." },
+        { status: 400 }
+      );
     }
 
-    // Validate file type
     const fileType = (file as File).type || "";
     const fileName = (file as File).name || "";
 
@@ -108,7 +110,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate size
     const size = (file as File).size;
     if (size > MAX_FILE_SIZE) {
       return NextResponse.json(
@@ -121,110 +122,85 @@ export async function POST(req: NextRequest) {
     }
 
     if (size === 0) {
-      return NextResponse.json({ error: "Empty file. Please upload a valid sketch image." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Empty file. Please upload a valid sketch image." },
+        { status: 400 }
+      );
     }
 
-    // Convert to base64
     const arrayBuffer = await (file as File).arrayBuffer();
     const base64 = Buffer.from(arrayBuffer).toString("base64");
-    const mime = fileType || "image/png";
-    const dataUrl = `data:${mime};base64,${base64}`;
+    const mimeType = fileType || "image/png";
 
-    // Call OpenRouter (OpenAI-compatible)
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 28000);
+    // Gemini integration – image as inlineData, not text conversion
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      systemInstruction: SYSTEM_PROMPT,
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 2000,
+        responseMimeType: "application/json",
+      },
+    });
 
-    let aiResponse: Response;
+    // Timeout handling – race with 28s timeout
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("TIMEOUT")), 28000)
+    );
+
+    let content: string;
     try {
-      aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          // Optional headers for OpenRouter ranking – safe to include if site env is set
-          ...(process.env.OPENROUTER_SITE_URL
-            ? { "HTTP-Referer": process.env.OPENROUTER_SITE_URL }
-            : {}),
-          ...(process.env.OPENROUTER_APP_NAME
-            ? { "X-Title": process.env.OPENROUTER_APP_NAME }
-            : { "X-Title": "INK UI" }),
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0.2,
-          max_tokens: 2000,
-          response_format: { type: "json_object" },
-          messages: [
-            {
-              role: "system",
-              content: SYSTEM_PROMPT,
+      const result = await Promise.race([
+        model.generateContent([
+          USER_INSTRUCTION,
+          {
+            inlineData: {
+              data: base64,
+              mimeType,
             },
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: USER_INSTRUCTION,
-                },
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: dataUrl,
-                    detail: "high",
-                  },
-                },
-              ],
-            },
-          ],
-        }),
-        signal: controller.signal,
-      });
+          },
+        ]),
+        timeoutPromise,
+      ]);
+
+      // result is GenerateContentResult
+      const response = (result as Awaited<ReturnType<typeof model.generateContent>>).response;
+      content = response.text();
+
+      if (!content) {
+        return NextResponse.json(
+          {
+            error: "AI returned empty response. Try a clearer sketch with darker lines.",
+            code: "EMPTY_RESPONSE",
+          },
+          { status: 502 }
+        );
+      }
     } catch (e: unknown) {
-      const isAbort = e instanceof Error && e.name === "AbortError";
-      if (isAbort) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg === "TIMEOUT") {
         return NextResponse.json(
           { error: "AI analysis timed out. Please try again with a smaller image.", code: "TIMEOUT" },
           { status: 504 }
         );
       }
-      console.error("[analyze] fetch error", e);
-      return NextResponse.json(
-        { error: "Network error while contacting AI service. Please try again.", code: "NETWORK_ERROR" },
-        { status: 502 }
-      );
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    if (!aiResponse.ok) {
-      const text = await aiResponse.text().catch(() => "");
-      console.error("[analyze] OpenRouter error", aiResponse.status, text.slice(0, 500));
-      if (aiResponse.status === 401) {
+      console.error("[analyze] Gemini fetch/generation error", e);
+      const errStr = String(e);
+      if (errStr.includes("API key") || errStr.includes("API_KEY") || errStr.includes("401") || errStr.includes("403")) {
         return NextResponse.json(
-          { error: "AI service authentication failed. Check OPENROUTER_API_KEY.", code: "AUTH_FAILED" },
+          { error: "AI service authentication failed. Check GEMINI_API_KEY.", code: "AUTH_FAILED" },
           { status: 500 }
         );
       }
-      if (aiResponse.status === 429) {
+      if (errStr.includes("429") || errStr.toLowerCase().includes("quota") || errStr.toLowerCase().includes("rate")) {
         return NextResponse.json(
           { error: "AI service rate limited. Please wait and try again.", code: "RATE_LIMITED" },
           { status: 429 }
         );
       }
       return NextResponse.json(
-        { error: "AI analysis failed. Please try again.", code: "AI_FAILED", details: text.slice(0, 200) },
-        { status: 502 }
-      );
-    }
-
-    const json = (await aiResponse.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
-
-    const content = json.choices?.[0]?.message?.content;
-    if (!content) {
-      return NextResponse.json(
-        { error: "AI returned empty response. Try a clearer sketch with darker lines.", code: "EMPTY_RESPONSE" },
+        { error: "AI analysis failed. Please try again.", code: "AI_FAILED" },
         { status: 502 }
       );
     }
@@ -262,7 +238,7 @@ export async function POST(req: NextRequest) {
       {
         success: true,
         data: validation.data,
-        model,
+        model: modelName,
       },
       { status: 200 }
     );
