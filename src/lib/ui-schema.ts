@@ -1,11 +1,26 @@
 /**
  * Strict TypeScript schema for INK UI structured output
  * Supported types: heading, text, input, button, card, image
- * Extended with optional design-intelligence fields for polished high-fidelity generation
+ * Extended with optional design-intelligence + visual polish fields
  */
 
 export const SUPPORTED_TYPES = ["heading", "text", "input", "button", "card", "image"] as const;
 export type ComponentType = typeof SUPPORTED_TYPES[number];
+
+/* Visual asset hints for intelligent polish */
+export type VisualAssetType =
+  | "hero"
+  | "product"
+  | "avatar"
+  | "illustration"
+  | "abstract"
+  | "data"
+  | "travel"
+  | "finance"
+  | "education"
+  | "portfolio"
+  | "article"
+  | "icon";
 
 export interface BaseComponent {
   id: string;
@@ -14,9 +29,15 @@ export interface BaseComponent {
   y: number;
   width: number;
   height: number;
+  // Visual polish hints – optional for compatibility
+  visualHint?: string; // descriptive hint e.g., "travel hero with mountains gradient"
+  assetType?: VisualAssetType;
+  icon?: string; // e.g., "user", "search", "settings", "shopping"
+  hasImage?: boolean; // for cards indicating image area
+  imageHint?: string; // alt for image inside card
+  variant?: string; // e.g., "primary", "secondary", "hero", "stat"
 }
 
-/* Component variants – existing required fields preserved for compatibility */
 export interface HeadingComponent extends BaseComponent {
   type: "heading";
   text: string;
@@ -57,7 +78,6 @@ export type UIComponent =
   | CardComponent
   | ImageComponent;
 
-/* --- Design-intelligence extensions (optional, for polished output) --- */
 export interface ColorPalette {
   primary?: string;
   secondary?: string;
@@ -92,14 +112,13 @@ export interface DesignSystem {
 export interface UIScreen {
   name: string;
   components: UIComponent[];
-  design?: DesignSystem; // optional – polished design tokens
+  design?: DesignSystem;
 }
 
 export interface UISchema {
   screen: UIScreen;
 }
 
-/** Validation result */
 export interface ValidationResult {
   valid: boolean;
   data?: UISchema;
@@ -123,7 +142,6 @@ function validateDesign(design: unknown): DesignSystem | undefined {
   const d = design as Record<string, unknown>;
   const out: DesignSystem = {};
 
-  // colorPalette
   if (d.colorPalette && typeof d.colorPalette === "object") {
     const cp = d.colorPalette as Record<string, unknown>;
     const palette: ColorPalette = {};
@@ -140,7 +158,6 @@ function validateDesign(design: unknown): DesignSystem | undefined {
     for (const k of keys) {
       const v = cp[k];
       if (isString(v) && v.trim().length > 0) {
-        // Accept hex or any non-empty string, but prefer hex – do not strictly fail on non-hex to allow inference
         palette[k] = v.trim();
       }
     }
@@ -149,7 +166,6 @@ function validateDesign(design: unknown): DesignSystem | undefined {
     }
   }
 
-  // typography
   if (d.typography && typeof d.typography === "object") {
     const tp = d.typography as Record<string, unknown>;
     const typo: TypographySystem = {};
@@ -161,7 +177,6 @@ function validateDesign(design: unknown): DesignSystem | undefined {
     if (Object.keys(typo).length > 0) out.typography = typo;
   }
 
-  // layout
   if (d.layout && typeof d.layout === "object") {
     const lp = d.layout as Record<string, unknown>;
     const layout: LayoutSystem = {};
@@ -176,6 +191,16 @@ function validateDesign(design: unknown): DesignSystem | undefined {
   }
 
   return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function extractOptionalString(obj: Record<string, unknown>, key: string): string | undefined {
+  const v = obj[key];
+  return isString(v) && v.trim().length > 0 ? v.trim() : undefined;
+}
+
+function extractOptionalBool(obj: Record<string, unknown>, key: string): boolean | undefined {
+  const v = obj[key];
+  return typeof v === "boolean" ? v : undefined;
 }
 
 export function validateUISchema(input: unknown): ValidationResult {
@@ -218,7 +243,6 @@ export function validateUISchema(input: unknown): ValidationResult {
     return { valid: false, error: "Too many components (max 50)" };
   }
 
-  // Optional design – validated if present, but not required for compatibility
   const design = validateDesign(screen["design"]);
 
   const validatedComponents: UIComponent[] = [];
@@ -263,6 +287,14 @@ export function validateUISchema(input: unknown): ValidationResult {
       return { valid: false, error: `Component '${id}' has invalid width/height` };
     }
 
+    // Visual polish optional fields – preserved for renderer, not strictly validated
+    const visualHint = extractOptionalString(c, "visualHint") || extractOptionalString(c, "alt");
+    const assetType = extractOptionalString(c, "assetType") as VisualAssetType | undefined;
+    const icon = extractOptionalString(c, "icon");
+    const hasImage = extractOptionalBool(c, "hasImage");
+    const imageHint = extractOptionalString(c, "imageHint");
+    const variant = extractOptionalString(c, "variant");
+
     const base: BaseComponent = {
       id: id.trim(),
       type,
@@ -270,6 +302,12 @@ export function validateUISchema(input: unknown): ValidationResult {
       y,
       width,
       height,
+      ...(visualHint ? { visualHint } : {}),
+      ...(assetType ? { assetType } : {}),
+      ...(icon ? { icon } : {}),
+      ...(hasImage !== undefined ? { hasImage } : {}),
+      ...(imageHint ? { imageHint } : {}),
+      ...(variant ? { variant } : {}),
     };
 
     switch (type) {
@@ -323,7 +361,7 @@ export function validateUISchema(input: unknown): ValidationResult {
         validatedComponents.push({
           ...base,
           type: "image",
-          alt: isString(alt) ? alt : undefined,
+          alt: isString(alt) ? alt : isString(visualHint) ? visualHint : undefined,
         } as ImageComponent);
         break;
       }
