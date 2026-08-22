@@ -20,6 +20,7 @@ import {
   getIconForHint,
 } from "./VisualAssets";
 import { loadFontsForTypography, getFontFamilyCss, isDecorativeFont } from "@/lib/fonts";
+import { detectContainment } from "@/lib/layout-validation";
 
 type ViewMode = "desktop" | "mobile";
 type Screen = "generated" | "dashboard";
@@ -287,7 +288,23 @@ function GeneratedButton({
   );
 }
 
-function GeneratedCard({ comp, tokens, screenPurpose }: { comp: CardComponent; tokens: ReturnType<typeof useDesignTokens>; screenPurpose: string }) {
+function GeneratedCard({ comp, tokens, screenPurpose, isContainer }: { comp: CardComponent; tokens: ReturnType<typeof useDesignTokens>; screenPurpose: string; isContainer: boolean }) {
+  // Container mode: the card wraps nested child components (heading/text/input/button/image),
+  // so render only the card surface – the children are drawn as their own components on top.
+  if (isContainer) {
+    return (
+      <div className="flex h-full w-full">
+        <div
+          style={{
+            backgroundColor: tokens.palette.surface,
+            borderColor: tokens.palette.border,
+          }}
+          className="w-full overflow-hidden rounded-[16px] border shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-md hover:border-[#45A9A9]/20 transition-all"
+        />
+      </div>
+    );
+  }
+
   const hasVisual = comp.hasImage || !!comp.imageHint || !!comp.visualHint || comp.width > 250;
   const imageHint = comp.imageHint || comp.visualHint || `${screenPurpose} card`;
 
@@ -512,9 +529,26 @@ export function PrototypeRenderer({ schema, viewMode, resetKey }: Props) {
     });
   }, [tokens.typography]);
 
+  // Parent/child containment from the final spatial validation pass.
+  // Parents (cards / hero images) are rendered first so nested children paint on top.
+  const containment = useMemo(() => detectContainment(schema.screen.components), [schema]);
+
   const components = useMemo(() => {
-    return [...schema.screen.components].sort((a, b) => a.y - b.y || a.x - b.x);
-  }, [schema]);
+    const depthOf = (id: string): number => {
+      let depth = 0;
+      let cur: string | undefined = id;
+      while (cur && containment.parentOf.has(cur)) {
+        cur = containment.parentOf.get(cur);
+        depth++;
+      }
+      return depth;
+    };
+    return [...schema.screen.components].sort((a, b) => {
+      const da = depthOf(a.id);
+      const db = depthOf(b.id);
+      return da - db || a.y - b.y || a.x - b.x;
+    });
+  }, [schema, containment]);
 
   const handleInputChange = (id: string, value: string) => {
     setInputs((prev) => ({ ...prev, [id]: value }));
@@ -596,11 +630,16 @@ export function PrototypeRenderer({ schema, viewMode, resetKey }: Props) {
           <div className="absolute bottom-0 left-0 h-48 w-48 rounded-full blur-3xl opacity-15" style={{ background: `radial-gradient(circle, ${tokens.palette.accent}, transparent)` }} />
         </div>
 
+        {/* Uniform canvas scaling: the whole validated layout scales together so the
+            spacing token can never push individual components into each other. */}
+        <div className="relative w-full" style={{ transform: `scale(${spacingFactor})`, transformOrigin: "top left" }}>
         {components.map((comp, idx) => {
-          const left = clamp((comp.x / 1000) * 100, 0, 90);
-          const top = clamp((comp.y / 1000) * 100, 0, 95);
-          const width = clamp((comp.width / 1000) * 100, 10, 95);
-          const height = clamp((comp.height / 1000) * 100, 4, 60);
+          // Trust the validated 0-1000 geometry. Only guard against absurd values –
+          // clamping here would re-introduce the overlaps the layout pass removed.
+          const left = clamp((comp.x / 1000) * 100, 0, 95);
+          const top = Math.min((comp.y / 1000) * 100, 150);
+          const width = Math.max(10, Math.min((comp.width / 1000) * 100, 95));
+          const height = Math.max(4, Math.min((comp.height / 1000) * 100, 150));
 
           const minWidthPx = comp.type === "heading" || comp.type === "text" ? 120 : 140;
           const minHeightPx = comp.type === "input" || comp.type === "button" ? 44 : 24;
@@ -619,8 +658,6 @@ export function PrototypeRenderer({ schema, viewMode, resetKey }: Props) {
                 height: `${height}%`,
                 minWidth: `${minWidthPx}px`,
                 minHeight: `${minHeightPx}px`,
-                transform: `scale(${spacingFactor})`,
-                transformOrigin: "top left",
               }}
             >
               {comp.type === "heading" && <GeneratedHeading comp={comp as HeadingComponent} tokens={tokens} isDisplay={isDisplayHeading} />}
@@ -638,13 +675,21 @@ export function PrototypeRenderer({ schema, viewMode, resetKey }: Props) {
               {comp.type === "button" && (
                 <GeneratedButton comp={comp as ButtonComponent} onClick={() => handleButtonClick(comp as ButtonComponent)} tokens={tokens} />
               )}
-              {comp.type === "card" && <GeneratedCard comp={comp as CardComponent} tokens={tokens} screenPurpose={screenPurpose} />}
+              {comp.type === "card" && (
+                <GeneratedCard
+                  comp={comp as CardComponent}
+                  tokens={tokens}
+                  screenPurpose={screenPurpose}
+                  isContainer={(containment.childrenOf.get(comp.id)?.length ?? 0) > 0}
+                />
+              )}
               {comp.type === "image" && (
                 <GeneratedImage comp={comp as ImageComponent} tokens={tokens} screenPurpose={screenPurpose} isHero={isHeroImage} />
               )}
             </div>
           );
         })}
+        </div>
 
         {components.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
