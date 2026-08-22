@@ -1,13 +1,12 @@
 /**
  * Strict TypeScript schema for INK UI structured output
  * Supported types: heading, text, input, button, card, image
- * Extended with optional design-intelligence + visual polish fields
+ * Extended with design-intelligence + visual polish + typography personality
  */
 
 export const SUPPORTED_TYPES = ["heading", "text", "input", "button", "card", "image"] as const;
 export type ComponentType = typeof SUPPORTED_TYPES[number];
 
-/* Visual asset hints for intelligent polish */
 export type VisualAssetType =
   | "hero"
   | "product"
@@ -29,13 +28,12 @@ export interface BaseComponent {
   y: number;
   width: number;
   height: number;
-  // Visual polish hints – optional for compatibility
-  visualHint?: string; // descriptive hint e.g., "travel hero with mountains gradient"
+  visualHint?: string;
   assetType?: VisualAssetType;
-  icon?: string; // e.g., "user", "search", "settings", "shopping"
-  hasImage?: boolean; // for cards indicating image area
-  imageHint?: string; // alt for image inside card
-  variant?: string; // e.g., "primary", "secondary", "hero", "stat"
+  icon?: string;
+  hasImage?: boolean;
+  imageHint?: string;
+  variant?: string;
 }
 
 export interface HeadingComponent extends BaseComponent {
@@ -90,11 +88,22 @@ export interface ColorPalette {
 }
 
 export interface TypographySystem {
+  // Legacy single field for backward compat
   fontFamily?: string;
   headingWeight?: number;
   bodyWeight?: number;
   headingSize?: string;
   bodySize?: string;
+  // New intelligent font personality fields
+  displayFont?: string;
+  headingFont?: string;
+  bodyFont?: string;
+  accentFont?: string;
+  monoFont?: string;
+  letterSpacing?: string;
+  headingLineHeight?: string;
+  bodyLineHeight?: string;
+  fontPersonality?: string; // e.g., "elegant serif", "modern geometric sans", etc.
 }
 
 export interface LayoutSystem {
@@ -174,6 +183,16 @@ function validateDesign(design: unknown): DesignSystem | undefined {
     if (isNumber(tp.bodyWeight)) typo.bodyWeight = tp.bodyWeight;
     if (isString(tp.headingSize)) typo.headingSize = tp.headingSize;
     if (isString(tp.bodySize)) typo.bodySize = tp.bodySize;
+    // New fields
+    if (isString(tp.displayFont)) typo.displayFont = tp.displayFont;
+    if (isString(tp.headingFont)) typo.headingFont = tp.headingFont;
+    if (isString(tp.bodyFont)) typo.bodyFont = tp.bodyFont;
+    if (isString(tp.accentFont)) typo.accentFont = tp.accentFont;
+    if (isString(tp.monoFont)) typo.monoFont = tp.monoFont;
+    if (isString(tp.letterSpacing)) typo.letterSpacing = tp.letterSpacing;
+    if (isString(tp.headingLineHeight)) typo.headingLineHeight = tp.headingLineHeight;
+    if (isString(tp.bodyLineHeight)) typo.bodyLineHeight = tp.bodyLineHeight;
+    if (isString(tp.fontPersonality)) typo.fontPersonality = tp.fontPersonality;
     if (Object.keys(typo).length > 0) out.typography = typo;
   }
 
@@ -287,7 +306,6 @@ export function validateUISchema(input: unknown): ValidationResult {
       return { valid: false, error: `Component '${id}' has invalid width/height` };
     }
 
-    // Visual polish optional fields – preserved for renderer, not strictly validated
     const visualHint = extractOptionalString(c, "visualHint") || extractOptionalString(c, "alt");
     const assetType = extractOptionalString(c, "assetType") as VisualAssetType | undefined;
     const icon = extractOptionalString(c, "icon");
