@@ -283,6 +283,32 @@ Instead, explore a different professional design direction through:
 
 The result must feel noticeably different from the previous generation while remaining faithful to the original sketch.`;
 
+export const INITIAL_4_OPTIONS_INSTRUCTION = `Generate a set of four distinct professional design directions from the same low-fidelity sketch.
+
+All four must preserve the user's product idea, content, major sections, components, and functionality.
+
+Create meaningful visual differences between the four directions through color palette, typography, composition, spacing, visual assets, component styling, and hierarchy.
+
+Do not invent major features.
+
+Each option should be independently usable as a polished prototype.`;
+
+export const REFINEMENT_4_OPTIONS_INSTRUCTION = `This is a refinement exploration of an already selected design.
+
+Treat the selected design as the new design source of truth.
+
+Preserve its core structure, content, functionality, and design direction.
+
+Generate four polished variations that improve or explore the selected design.
+
+Make meaningful but controlled differences in visual hierarchy, typography, spacing, component styling, visual assets, color usage, and composition.
+
+Do NOT return to the original sketch.
+Do NOT completely redesign the product.
+Do NOT invent major features.
+
+These should feel like four increasingly refined interpretations of the selected design.`;
+
 export function buildRegenerationPrompt(previousDesign: unknown, regenerationCount: number): string {
   const count = Math.max(1, regenerationCount);
   let prevInfo = "";
@@ -322,7 +348,7 @@ export function buildRegenerationPrompt(previousDesign: unknown, regenerationCou
       }
     }
   } catch {
-    // ignore parsing errors, continue with generic regeneration
+    // ignore parsing errors
   }
 
   const variationHints = [
@@ -337,4 +363,93 @@ export function buildRegenerationPrompt(previousDesign: unknown, regenerationCou
   const variation = variationHints[(count - 1) % variationHints.length];
 
   return `${REGENERATION_INSTRUCTION}${prevInfo}\nREGENERATION #${count} – VARIATION DIRECTION: ${variation}\n\nThis is regeneration #${count} of the same sketch. The user wants another professional interpretation – it should feel like "Give me another professional design interpretation of this same idea" not "analyze again". Keep components, content, and structure, but make visual design noticeably different. Return ONLY valid JSON matching the schema with new design tokens.\n`;
+}
+
+export function buildInitial4OptionsPrompt(): string {
+  return `${INITIAL_4_OPTIONS_INSTRUCTION}
+
+You must generate FOUR distinct options in ONE response. All four must be derived from the SAME sketch image provided.
+
+Each option must preserve:
+- same product idea
+- same major sections
+- same important components
+- same content/relationships
+- same functionality
+
+But each option should explore a different visual/design direction through:
+- different color palette (e.g., Option1 minimal dark SaaS #4E1F6E, Option2 light editorial with teal #45A9A9, Option3 bold colorful modern, Option4 clean soft UI with #98E8DE highlights – choose appropriate styles based on sketch, do not force these exact styles on every sketch)
+- typography (different font families, weights, hierarchy)
+- layout composition (centered vs left, compact vs spacious)
+- spacing (8px grid variations)
+- card treatment (different radius, shadow, border)
+- visual assets (different illustration hints matching purpose)
+- border radius, shadows, background treatment, hierarchy
+
+The four options must be meaningfully different, not four nearly identical versions. Ensure NO overlapping components within each option – apply layout validation.
+
+Return ONLY valid JSON matching this exact structure:
+{
+  "options": [
+    { "screen": { "name": "...", "design": { "colorPalette": {...}, "typography": {...}, "layout": {...} }, "components": [...] } },
+    { "screen": { "name": "...", "design": { "colorPalette": {...}, "typography": {...}, "layout": {...} }, "components": [...] } },
+    { "screen": { "name": "...", "design": {...}, "components": [...] } },
+    { "screen": { "name": "...", "design": {...}, "components": [...] } }
+  ]
+}
+
+Each screen must independently follow the main schema rules (unique ids, x,y 0-1000, no overlap, min gap 20, form inputs same x/width vertical stack, cards grid equal gaps). Return JSON only, no markdown.
+`;
+}
+
+export function buildRefinement4OptionsPrompt(selectedDesign: unknown): string {
+  let selectedInfo = "";
+  try {
+    if (selectedDesign && typeof selectedDesign === "object") {
+      const s = selectedDesign as Record<string, unknown>;
+      const screen = (s as { screen?: Record<string, unknown> }).screen || s;
+      const name = screen.name || "Selected";
+      const design = screen.design as Record<string, unknown> | undefined;
+      const palette = design?.colorPalette as Record<string, unknown> | undefined;
+      const comps = screen.components as unknown[] | undefined;
+      
+      const parts: string[] = [];
+      parts.push(`Selected screen name: ${name}`);
+      if (palette?.primary) parts.push(`Selected primary: ${palette.primary}`);
+      if (palette?.background) parts.push(`Selected background: ${palette.background}`);
+      if (comps) parts.push(`Selected has ${comps.length} components – preserve same count and types`);
+      
+      selectedInfo = `\n\nSELECTED DESIGN SOURCE OF TRUTH:\n${parts.join("\n")}\n\nFull selected design JSON:\n${JSON.stringify(screen).slice(0, 3000)}\n`;
+    }
+  } catch {
+    // ignore
+  }
+
+  return `${REFINEMENT_4_OPTIONS_INSTRUCTION}${selectedInfo}
+
+Generate FOUR refined variations based on the SELECTED option. Treat selected design as new source of truth – preserve its core structure, content, functionality, and design direction, but improve/explore it.
+
+Make controlled differences:
+- Refinement 1: Improved spacing + stronger hierarchy
+- Refinement 2: Better cards + stronger visual assets
+- Refinement 3: More polished typography + navigation
+- Refinement 4: More refined overall composition
+(Do not force these exact changes – choose appropriate refinements based on selected design)
+
+These should feel like four increasingly refined interpretations of the selected design, NOT completely unrelated designs. Do NOT return to original sketch. Do NOT completely redesign. Do NOT invent major features.
+
+All four must still be derived from same original sketch image, but with selected design as guidance. Ensure NO overlapping, collision-free, with design tokens.
+
+Return ONLY valid JSON:
+{
+  "options": [
+    { "screen": {...} },
+    { "screen": {...} },
+    { "screen": {...} },
+    { "screen": {...} }
+  ]
+}
+
+Return JSON only, no markdown.
+`;
 }

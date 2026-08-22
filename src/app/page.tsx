@@ -22,6 +22,14 @@ export default function Home() {
   const [regenerationCount, setRegenerationCount] = useState(0);
   const [regenError, setRegenError] = useState<string | null>(null);
 
+  // Multi-option exploration state
+  const [activeOptions, setActiveOptions] = useState<UISchema[] | null>(null);
+  const [activeOptionsMode, setActiveOptionsMode] = useState<"initial" | "refine" | null>(null);
+  const [selectedOptionIndex, setSelectedOptionIndex] = useState(0);
+  const [isExploringOptions, setIsExploringOptions] = useState(false);
+  const [explorationError, setExplorationError] = useState<string | null>(null);
+  const [explorationCount, setExplorationCount] = useState(0);
+
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -36,10 +44,15 @@ export default function Home() {
       setPreviewUrl(url);
       setError(null);
       setRegenError(null);
+      setExplorationError(null);
       setStatus("idle");
       setResult(null);
       setPreviousResult(null);
       setRegenerationCount(0);
+      setActiveOptions(null);
+      setActiveOptionsMode(null);
+      setSelectedOptionIndex(0);
+      setExplorationCount(0);
     },
     [previewUrl]
   );
@@ -50,10 +63,15 @@ export default function Home() {
     setPreviewUrl(null);
     setError(null);
     setRegenError(null);
+    setExplorationError(null);
     setStatus("idle");
     setResult(null);
     setPreviousResult(null);
     setRegenerationCount(0);
+    setActiveOptions(null);
+    setActiveOptionsMode(null);
+    setSelectedOptionIndex(0);
+    setExplorationCount(0);
   }, [previewUrl]);
 
   const handleAnalyze = useCallback(async () => {
@@ -65,9 +83,14 @@ export default function Home() {
     setStatus("analyzing");
     setError(null);
     setRegenError(null);
+    setExplorationError(null);
     setResult(null);
     setPreviousResult(null);
     setRegenerationCount(0);
+    setActiveOptions(null);
+    setActiveOptionsMode(null);
+    setSelectedOptionIndex(0);
+    setExplorationCount(0);
 
     const messages = [
       "Reading your sketch...",
@@ -125,7 +148,6 @@ export default function Home() {
 
     setIsRegenerating(true);
     setRegenError(null);
-    // Keep existing prototype visible initially per spec – don't clear result
     setProgressMessage("Regenerating design...");
 
     const nextCount = regenerationCount + 1;
@@ -165,15 +187,16 @@ export default function Home() {
         throw new Error("Invalid regeneration response.");
       }
 
-      // Save current to previous for undo/history
       setPreviousResult(result);
       setResult(json.data as UISchema);
       setRegenerationCount(nextCount);
       setStatus("success");
+      // Clear options when single regenerate happens – keep single mode
+      setActiveOptions(null);
+      setActiveOptionsMode(null);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Regeneration failed. Please try again.";
       setRegenError(message);
-      // Keep existing prototype intact per spec
     } finally {
       clearInterval(interval);
       setIsRegenerating(false);
@@ -183,19 +206,186 @@ export default function Home() {
 
   const handleUndo = useCallback(() => {
     if (!previousResult) return;
-    // Restore previous without calling Gemini
     const current = result;
     setResult(previousResult);
-    setPreviousResult(current); // allow redo-like toggle, or clear? Keep current as previous for toggle
+    setPreviousResult(current);
     setRegenError(null);
-    // If we want to decrement count, we can but keep count for variation tracking
-    // Optionally keep count as is, or decrement
+    setExplorationError(null);
     setRegenerationCount((c) => Math.max(0, c - 1));
   }, [previousResult, result]);
 
+  // --- Multi-option exploration handlers ---
+
+  const handleExploreInitial = useCallback(async () => {
+    if (!file) {
+      setError("No sketch available. Upload a sketch first.");
+      return;
+    }
+
+    setIsExploringOptions(true);
+    setExplorationError(null);
+    setRegenError(null);
+    setProgressMessage("Exploring designs...");
+
+    const exploreMessages = [
+      "Exploring designs...",
+      "Generating 4 directions...",
+      "Polishing variations...",
+      "Validating layouts...",
+    ];
+    let idx = 0;
+    setProgressMessage(exploreMessages[0]);
+    const interval = setInterval(() => {
+      idx = Math.min(idx + 1, exploreMessages.length - 1);
+      setProgressMessage(exploreMessages[idx]);
+    }, 1500);
+
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      form.append("mode", "initial");
+      // Pass previous designs to avoid repetition if we already have options
+      if (activeOptions) {
+        form.append("previousDesigns", JSON.stringify(activeOptions));
+      } else if (result) {
+        form.append("previousDesigns", JSON.stringify([result]));
+      }
+
+      const res = await fetch("/api/explore", {
+        method: "POST",
+        body: form,
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Exploration failed. Please try again.");
+      }
+
+      const options = json?.data?.options as UISchema[] | undefined;
+      if (!options || options.length === 0) {
+        throw new Error("No design options returned.");
+      }
+
+      // Keep successful options even if less than 4 – API already handles partial
+      setActiveOptions(options);
+      setActiveOptionsMode("initial");
+      setSelectedOptionIndex(0);
+      setPreviousResult(result); // save current for undo
+      setResult(options[0]);
+      setStatus("success");
+      setExplorationCount((c) => c + 1);
+      setProgressMessage("4 design directions generated");
+      setTimeout(() => setProgressMessage("Reading your sketch..."), 2000);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Exploration failed. Please try again.";
+      setExplorationError(msg);
+      // Keep currently selected prototype per spec
+    } finally {
+      clearInterval(interval);
+      setIsExploringOptions(false);
+    }
+  }, [file, activeOptions, result]);
+
+  const handleExploreRefine = useCallback(async () => {
+    if (!file) {
+      setError("No sketch available. Upload a sketch first.");
+      return;
+    }
+
+    const sourceDesign = activeOptions ? activeOptions[selectedOptionIndex] : result;
+
+    if (!sourceDesign) {
+      setError("No design selected to refine. Generate options first.");
+      return;
+    }
+
+    setIsExploringOptions(true);
+    setExplorationError(null);
+    setRegenError(null);
+    setProgressMessage("Exploring this design...");
+
+    const refineMessages = [
+      "Exploring this design...",
+      "Refining spacing & hierarchy...",
+      "Polishing cards & assets...",
+      "Generating refinements...",
+    ];
+    let idx = 0;
+    setProgressMessage(refineMessages[0]);
+    const interval = setInterval(() => {
+      idx = Math.min(idx + 1, refineMessages.length - 1);
+      setProgressMessage(refineMessages[idx]);
+    }, 1500);
+
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      form.append("mode", "refine");
+      form.append("selectedDesign", JSON.stringify(sourceDesign));
+
+      const res = await fetch("/api/explore", {
+        method: "POST",
+        body: form,
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Refinement failed. Please try again.");
+      }
+
+      const options = json?.data?.options as UISchema[] | undefined;
+      if (!options || options.length === 0) {
+        throw new Error("No refinements returned.");
+      }
+
+      setActiveOptions(options);
+      setActiveOptionsMode("refine");
+      setSelectedOptionIndex(0);
+      setPreviousResult(result);
+      setResult(options[0]);
+      setStatus("success");
+      setExplorationCount((c) => c + 1);
+      setProgressMessage("4 refinements generated");
+      setTimeout(() => setProgressMessage("Reading your sketch..."), 2000);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Refinement failed. Please try again.";
+      setExplorationError(msg);
+    } finally {
+      clearInterval(interval);
+      setIsExploringOptions(false);
+    }
+  }, [file, activeOptions, selectedOptionIndex, result]);
+
+  const handleSelectOptionIndex = useCallback(
+    (index: number) => {
+      if (!activeOptions) return;
+      if (index < 0 || index >= activeOptions.length) return;
+      setSelectedOptionIndex(index);
+      // Smoothly replace old prototype without API call per spec
+      setResult(activeOptions[index]);
+      setStatus("success");
+    },
+    [activeOptions]
+  );
+
+  const handleUseDesign = useCallback(() => {
+    if (!activeOptions) return;
+    const selected = activeOptions[selectedOptionIndex];
+    if (!selected) return;
+    // Make it CURRENT DESIGN – becomes new source for refinement
+    setPreviousResult(result);
+    setResult(selected);
+    setStatus("success");
+    // Keep options for navigation, but clear refine/initial distinction? Keep as is for continued exploring
+    setExplorationError(null);
+  }, [activeOptions, selectedOptionIndex, result]);
+
   const hasImage = !!file && !!previewUrl;
   const isAnalyzing = status === "analyzing";
-  const showRegenerating = isRegenerating;
+  const showRegenerating = isRegenerating || isExploringOptions;
+  const combinedError = explorationError || regenError || error;
 
   return (
     <div className="flex min-h-screen flex-col bg-[#13111e]">
@@ -219,10 +409,10 @@ export default function Home() {
                     <span className="relative inline-flex size-2 rounded-full bg-[#45A9A9]" />
                   </span>
                   <span className="text-[11px] font-medium tracking-[0.14em] text-[#f0eef6]/80">
-                    WORKSPACE • REGENERATE • GEMINI 3.5
+                    WORKSPACE • 4 OPTIONS • GEMINI 3.5
                   </span>
                 </div>
-                <span className="text-[11px] tracking-wide text-[#a8a6b8]/60">Camera → AI → Prototype → Regenerate</span>
+                <span className="text-[11px] tracking-wide text-[#a8a6b8]/60">Sketch → 4 Options → Refine</span>
               </div>
 
               <h1 className="text-pretty text-[34px] sm:text-[52px] font-[650] leading-[0.95] tracking-[-0.03em] text-[#f0eef6]">
@@ -235,18 +425,18 @@ export default function Home() {
 
               <p className="mt-4 max-w-[520px] text-pretty text-[15px] sm:text-[17px] leading-[1.6] tracking-[-0.01em] text-[#a8a6b8]">
                 Turn a hand-drawn interface into a working prototype.
-                <span className="text-[#a8a6b8]/60"> Regenerate for new design interpretations without re-uploading.</span>
+                <span className="text-[#a8a6b8]/60"> Generate 4 directions, pick one, refine into 4 more.</span>
               </p>
             </div>
 
             <div className="hidden lg:flex flex-col items-end gap-3">
               <div className="flex items-center gap-2 rounded-full border border-[#3E3E75]/30 bg-[#1d1b2a] px-3 py-1.5">
                 <kbd className="rounded bg-[#2d2b42] px-1.5 py-0.5 font-mono text-[10px] text-[#98E8DE]">⌘</kbd>
-                <kbd className="rounded bg-[#2d2b42] px-1.5 py-0.5 font-mono text-[10px] text-[#98E8DE]">R</kbd>
-                <span className="ml-1 text-[11px] text-[#a8a6b8]/70">Regenerate</span>
+                <kbd className="rounded bg-[#2d2b42] px-1.5 py-0.5 font-mono text-[10px] text-[#98E8DE]">E</kbd>
+                <span className="ml-1 text-[11px] text-[#a8a6b8]/70">Explore 4</span>
               </div>
               <div className="text-right text-[11px] leading-[1.4] text-[#a8a6b8]/40">
-                <div>Hackathon • Regenerate Design • Free</div>
+                <div>Multi-option • Design Tree • Free</div>
                 <div>Original sketch reused • No re-upload</div>
               </div>
             </div>
@@ -261,7 +451,7 @@ export default function Home() {
             fileName={file?.name || null}
             fileSize={file?.size || null}
             error={error}
-            isAnalyzing={isAnalyzing || isRegenerating}
+            isAnalyzing={isAnalyzing || isRegenerating || isExploringOptions}
             onFileSelect={handleFileSelect}
             onRemove={handleRemove}
           />
@@ -276,14 +466,25 @@ export default function Home() {
             regenError={regenError}
             onRegenerate={handleRegenerate}
             onUndo={handleUndo}
+            // New multi-option props
+            options={activeOptions}
+            selectedOptionIndex={selectedOptionIndex}
+            onSelectOptionIndex={handleSelectOptionIndex}
+            onUseDesign={handleUseDesign}
+            onExploreDesign={handleExploreRefine}
+            isExploringOptions={isExploringOptions}
+            activeOptionsMode={activeOptionsMode}
+            explorationCount={explorationCount}
+            explorationError={explorationError}
+            onExploreInitial={handleExploreInitial}
           />
         </div>
 
-        <AnalyzeButton disabled={!hasImage || isAnalyzing || isRegenerating} isAnalyzing={isAnalyzing} hasImage={hasImage} onClick={handleAnalyze} />
+        <AnalyzeButton disabled={!hasImage || isAnalyzing || isRegenerating || isExploringOptions} isAnalyzing={isAnalyzing} hasImage={hasImage} onClick={handleAnalyze} />
 
-        {(error && status !== "error") || regenError ? (
+        {combinedError && status !== "error" ? (
           <div className="mx-auto mt-2 max-w-[520px] rounded-[12px] border border-[#4E1F6E]/30 bg-[#4E1F6E]/15 px-4 py-3 text-center text-[12px] text-[#f0eef6]">
-            {regenError || error}
+            {combinedError}
           </div>
         ) : null}
       </main>
@@ -295,13 +496,13 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <div className="size-6 rounded-[7px] bg-gradient-to-br from-[#4E1F6E] to-[#45A9A9] text-[#f0eef6] flex items-center justify-center text-[10px] font-bold">INK</div>
             <span className="text-[12.5px] tracking-[-0.01em] text-[#a8a6b8]/70">
-              INK UI • © {new Date().getFullYear()} • Regenerate • Gemini 3.5
+              INK UI • © {new Date().getFullYear()} • 4 Options • Gemini 3.5
             </span>
           </div>
           <div className="flex items-center gap-4 text-[12px] text-[#a8a6b8]/40">
-            <span className="hidden sm:inline">Original sketch reused</span>
+            <span className="hidden sm:inline">Design tree: sketch → 4 → refine</span>
             <span className="hidden sm:inline">•</span>
-            <span>API: POST /api/analyze</span>
+            <span>API: /api/analyze + /api/explore</span>
           </div>
         </div>
       </footer>
