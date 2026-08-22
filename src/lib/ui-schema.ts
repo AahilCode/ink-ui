@@ -1,6 +1,7 @@
 /**
  * Strict TypeScript schema for INK UI structured output
  * Supported types: heading, text, input, button, card, image
+ * Extended with optional design-intelligence fields for polished high-fidelity generation
  */
 
 export const SUPPORTED_TYPES = ["heading", "text", "input", "button", "card", "image"] as const;
@@ -15,6 +16,7 @@ export interface BaseComponent {
   height: number;
 }
 
+/* Component variants – existing required fields preserved for compatibility */
 export interface HeadingComponent extends BaseComponent {
   type: "heading";
   text: string;
@@ -28,7 +30,7 @@ export interface TextComponent extends BaseComponent {
 export interface InputComponent extends BaseComponent {
   type: "input";
   placeholder?: string;
-  text?: string; // sometimes label
+  text?: string;
 }
 
 export interface ButtonComponent extends BaseComponent {
@@ -55,9 +57,42 @@ export type UIComponent =
   | CardComponent
   | ImageComponent;
 
+/* --- Design-intelligence extensions (optional, for polished output) --- */
+export interface ColorPalette {
+  primary?: string;
+  secondary?: string;
+  accent?: string;
+  background?: string;
+  surface?: string;
+  text?: string;
+  muted?: string;
+  border?: string;
+}
+
+export interface TypographySystem {
+  fontFamily?: string;
+  headingWeight?: number;
+  bodyWeight?: number;
+  headingSize?: string;
+  bodySize?: string;
+}
+
+export interface LayoutSystem {
+  alignment?: "left" | "center" | "right";
+  spacing?: "compact" | "comfortable" | "spacious";
+  style?: string;
+}
+
+export interface DesignSystem {
+  colorPalette?: ColorPalette;
+  typography?: TypographySystem;
+  layout?: LayoutSystem;
+}
+
 export interface UIScreen {
   name: string;
   components: UIComponent[];
+  design?: DesignSystem; // optional – polished design tokens
 }
 
 export interface UISchema {
@@ -83,6 +118,66 @@ function isValidType(t: unknown): t is ComponentType {
   return isString(t) && (SUPPORTED_TYPES as readonly string[]).includes(t);
 }
 
+function validateDesign(design: unknown): DesignSystem | undefined {
+  if (!design || typeof design !== "object") return undefined;
+  const d = design as Record<string, unknown>;
+  const out: DesignSystem = {};
+
+  // colorPalette
+  if (d.colorPalette && typeof d.colorPalette === "object") {
+    const cp = d.colorPalette as Record<string, unknown>;
+    const palette: ColorPalette = {};
+    const keys: (keyof ColorPalette)[] = [
+      "primary",
+      "secondary",
+      "accent",
+      "background",
+      "surface",
+      "text",
+      "muted",
+      "border",
+    ];
+    for (const k of keys) {
+      const v = cp[k];
+      if (isString(v) && v.trim().length > 0) {
+        // Accept hex or any non-empty string, but prefer hex – do not strictly fail on non-hex to allow inference
+        palette[k] = v.trim();
+      }
+    }
+    if (Object.keys(palette).length > 0) {
+      out.colorPalette = palette;
+    }
+  }
+
+  // typography
+  if (d.typography && typeof d.typography === "object") {
+    const tp = d.typography as Record<string, unknown>;
+    const typo: TypographySystem = {};
+    if (isString(tp.fontFamily)) typo.fontFamily = tp.fontFamily;
+    if (isNumber(tp.headingWeight)) typo.headingWeight = tp.headingWeight;
+    if (isNumber(tp.bodyWeight)) typo.bodyWeight = tp.bodyWeight;
+    if (isString(tp.headingSize)) typo.headingSize = tp.headingSize;
+    if (isString(tp.bodySize)) typo.bodySize = tp.bodySize;
+    if (Object.keys(typo).length > 0) out.typography = typo;
+  }
+
+  // layout
+  if (d.layout && typeof d.layout === "object") {
+    const lp = d.layout as Record<string, unknown>;
+    const layout: LayoutSystem = {};
+    if (isString(lp.alignment) && ["left", "center", "right"].includes(lp.alignment)) {
+      layout.alignment = lp.alignment as LayoutSystem["alignment"];
+    }
+    if (isString(lp.spacing) && ["compact", "comfortable", "spacious"].includes(lp.spacing)) {
+      layout.spacing = lp.spacing as LayoutSystem["spacing"];
+    }
+    if (isString(lp.style)) layout.style = lp.style;
+    if (Object.keys(layout).length > 0) out.layout = layout;
+  }
+
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 export function validateUISchema(input: unknown): ValidationResult {
   if (!input || typeof input !== "object") {
     return { valid: false, error: "Response is not an object" };
@@ -90,10 +185,8 @@ export function validateUISchema(input: unknown): ValidationResult {
 
   const obj = input as Record<string, unknown>;
 
-  // Allow both {screen: {...}} and direct {name, components} for robustness, but require screen
   let screenRaw: unknown = obj["screen"];
   if (!screenRaw) {
-    // If the model returned the screen directly
     if (obj["components"] && obj["name"]) {
       screenRaw = obj;
     } else {
@@ -124,6 +217,9 @@ export function validateUISchema(input: unknown): ValidationResult {
   if (comps.length > 50) {
     return { valid: false, error: "Too many components (max 50)" };
   }
+
+  // Optional design – validated if present, but not required for compatibility
+  const design = validateDesign(screen["design"]);
 
   const validatedComponents: UIComponent[] = [];
   const ids = new Set<string>();
@@ -160,7 +256,6 @@ export function validateUISchema(input: unknown): ValidationResult {
       };
     }
 
-    // Reasonable bounds: allow 0-2000, width/height > 0
     if (x < 0 || y < 0 || x > 2000 || y > 2000) {
       return { valid: false, error: `Component '${id}' has out-of-range x/y (must be 0-2000)` };
     }
@@ -177,7 +272,6 @@ export function validateUISchema(input: unknown): ValidationResult {
       height,
     };
 
-    // Type-specific validation
     switch (type) {
       case "heading":
       case "text": {
@@ -212,7 +306,6 @@ export function validateUISchema(input: unknown): ValidationResult {
           placeholder: isString(placeholder) ? placeholder : undefined,
           text: isString(text) ? text : undefined,
         };
-        // At least one of placeholder/text should exist, but not strict — allow empty
         validatedComponents.push(comp);
         break;
       }
@@ -245,6 +338,7 @@ export function validateUISchema(input: unknown): ValidationResult {
       screen: {
         name: name.trim(),
         components: validatedComponents,
+        ...(design ? { design } : {}),
       },
     },
   };
