@@ -5,7 +5,6 @@
  */
 
 import type { UIScreen, UIComponent, ColorPalette, DesignSystem } from "./ui-schema";
-import { detectContainment } from "./layout-validation";
 
 const SPACING_SCALE = [8, 12, 16, 24, 32, 48, 64, 96];
 const GAP = 20; // minimum gap for feature preservation restore
@@ -356,11 +355,6 @@ function improveAesthetics(screen: UIScreen): UIScreen {
     card: depth.card,
     elevated: depth.elevated,
   };
-  // Parent/child containment detected up-front so positional tweaks never scatter
-  // components out of their container (e.g. inputs out of a login/signup card).
-  // The final spatial pass (validateAndFixLayout) fully owns child placement.
-  const containment = detectContainment(components);
-
   const spacingTokens = {
     scale: SPACING_SCALE,
     density: components.length > 12 ? "dense" : components.length < 5 ? "airy" : "balanced",
@@ -419,14 +413,13 @@ function improveAesthetics(screen: UIScreen): UIScreen {
   };
 
   // Component consistency – ensure repeated components share same dimensions where appropriate
-  // Inputs same width – only within the same container group. Inputs nested inside cards
-  // are positioned by the final spatial pass together with their parent card.
-  const inputs = components.filter((c) => c.type === "input" && !containment.parentOf.has(c.id));
+  // Inputs same width
+  const inputs = components.filter((c) => c.type === "input");
   if (inputs.length > 1) {
     const maxWidth = Math.max(...inputs.map((c) => c.width));
     const commonX = Math.min(...inputs.map((c) => c.x));
     components = components.map((c) => {
-      if (c.type === "input" && !containment.parentOf.has(c.id)) {
+      if (c.type === "input") {
         return { ...c, width: maxWidth, x: commonX };
       }
       return c;
@@ -465,10 +458,8 @@ function improveAesthetics(screen: UIScreen): UIScreen {
   }
 
   // Whitespace intelligence – ensure gaps use spacing scale
-  // Sort by y and adjust gaps to nearest scale, preserving relationships.
-  // Only top-level components are adjusted here; children inside cards/heroes are
-  // reflowed by the final spatial validation pass so they never escape their parent.
-  const sorted = components.filter((c) => !containment.parentOf.has(c.id)).sort((a, b) => a.y - b.y);
+  // Sort by y and adjust gaps to nearest scale, preserving relationships
+  const sorted = [...components].sort((a, b) => a.y - b.y);
   for (let i = 1; i < sorted.length; i++) {
     const prev = sorted[i - 1];
     const curr = sorted[i];
@@ -507,20 +498,11 @@ function improveAesthetics(screen: UIScreen): UIScreen {
   }
 
   // Ensure primary CTA easy to find – if button with dashboard action exists, ensure it's near bottom of form and full width
-  // Only reposition top-level CTAs; CTAs nested in cards are placed by the spatial pass.
   const primaryCTA = components.find(
-    (c) =>
-      c.type === "button" &&
-      !containment.parentOf.has(c.id) &&
-      (c as { action?: string }).action?.toLowerCase().includes("dashboard")
+    (c) => c.type === "button" && (c as { action?: string }).action?.toLowerCase().includes("dashboard")
   );
   if (primaryCTA) {
-    const maxInputY = Math.max(
-      0,
-      ...components
-        .filter((c) => c.type === "input" && !containment.parentOf.has(c.id))
-        .map((c) => c.y + c.height)
-    );
+    const maxInputY = Math.max(0, ...components.filter((c) => c.type === "input").map((c) => c.y + c.height));
     if (maxInputY > 0 && primaryCTA.y < maxInputY) {
       primaryCTA.y = maxInputY + 24;
     }
