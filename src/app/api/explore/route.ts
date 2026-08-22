@@ -10,22 +10,146 @@ const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 const MODEL = "gemini-3.5-flash-lite";
 
 export const runtime = "nodejs";
-export const maxDuration = 90; // longer for 4 options
+export const maxDuration = 90;
 
 function extractJson(content: string): unknown {
-  const trimmed = content.trim();
+  const original = content;
+  let trimmed = content.trim();
+
+  // 1. Handle markdown fences robustly – remove all ```json and ``` markers
+  // Replace fences with empty and extract inner if present
+  const fencePattern = /```(?:json)?\s*([\s\S]*?)\s*```/gi;
+  const fenceMatches = [...trimmed.matchAll(fencePattern)];
+  if (fenceMatches.length > 0) {
+    // Use the largest match that looks like JSON (contains "options" or "screen")
+    let best = fenceMatches[0][1];
+    for (const m of fenceMatches) {
+      if (m[1].length > best.length && (m[1].includes("options") || m[1].includes("screen"))) {
+        best = m[1];
+      }
+    }
+    trimmed = best.trim();
+  } else {
+    // Strip stray fence markers if any
+    trimmed = trimmed.replace(/```json/gi, "").replace(/```/g, "").trim();
+  }
+
+  // 2. Try direct parse
   try {
     return JSON.parse(trimmed);
   } catch {}
 
-  const fenceRegex = /```(?:json)?\s*([\s\S]*?)\s*```/i;
-  const match = trimmed.match(fenceRegex);
-  if (match) {
-    try {
-      return JSON.parse(match[1].trim());
-    } catch {}
+  // 3. Try to find first { and extract balanced JSON object
+  const firstBrace = trimmed.indexOf("{");
+  if (firstBrace !== -1) {
+    let depth = 0;
+    let inString = false;
+    let escapeNext = false;
+    let endIndex = -1;
+
+    for (let i = firstBrace; i < trimmed.length; i++) {
+      const char = trimmed[i];
+
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        if (inString) {
+          escapeNext = true;
+        }
+        continue;
+      }
+
+      if (char === '"' && !escapeNext) {
+        inString = !inString;
+        continue;
+      }
+
+      if (inString) continue;
+
+      if (char === "{") {
+        depth++;
+      } else if (char === "}") {
+        depth--;
+        if (depth === 0) {
+          endIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (endIndex !== -1) {
+      const candidate = trimmed.slice(firstBrace, endIndex + 1);
+      try {
+        return JSON.parse(candidate);
+      } catch {}
+      // If still fails, try from first to last } as fallback for cases with trailing text
+      const lastBrace = trimmed.lastIndexOf("}");
+      if (lastBrace > firstBrace && lastBrace !== endIndex) {
+        const fallback = trimmed.slice(firstBrace, lastBrace + 1);
+        try {
+          return JSON.parse(fallback);
+        } catch {}
+      }
+    } else {
+      // No closing brace found – likely truncated
+      const openBraces = (trimmed.match(/{/g) || []).length;
+      const closeBraces = (trimmed.match(/}/g) || []).length;
+      console.error("[explore] JSON extract failed – likely truncated/incomplete", {
+        isTruncated: true,
+        openBraces,
+        closeBraces,
+        length: original.length,
+        snippet: original.slice(-500),
+      });
+      throw new Error("TRUNCATED_JSON");
+    }
   }
 
+  // 4. Try array extraction if object failed – find first [ balanced
+  const firstBracket = trimmed.indexOf("[");
+  if (firstBracket !== -1) {
+    let depth = 0;
+    let inString = false;
+    let escapeNext = false;
+    let endIndex = -1;
+
+    for (let i = firstBracket; i < trimmed.length; i++) {
+      const char = trimmed[i];
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+      if (char === "\\" && inString) {
+        escapeNext = true;
+        continue;
+      }
+      if (char === '"' && !escapeNext) {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+      if (char === "[") depth++;
+      else if (char === "]") {
+        depth--;
+        if (depth === 0) {
+          endIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (endIndex !== -1) {
+      const candidate = trimmed.slice(firstBracket, endIndex + 1);
+      try {
+        return JSON.parse(candidate);
+      } catch {}
+    }
+  }
+
+  // 5. Final fallback – first { to last } (handles trailing text)
   const first = trimmed.indexOf("{");
   const last = trimmed.lastIndexOf("}");
   if (first !== -1 && last !== -1 && last > first) {
@@ -35,19 +159,29 @@ function extractJson(content: string): unknown {
     } catch {}
   }
 
-  throw new Error("Could not extract JSON");
+  // Log failure details
+  const openBraces = (trimmed.match(/{/g) || []).length;
+  const closeBraces = (trimmed.match(/}/g) || []).length;
+  const isTruncated = openBraces !== closeBraces || trimmed.length > 10000;
+  console.error("[explore] JSON extract failed", {
+    isTruncated,
+    openBraces,
+    closeBraces,
+    length: original.length,
+    start: original.slice(0, 300),
+    end: original.slice(-500),
+  });
+
+  throw new Error(isTruncated ? "TRUNCATED_JSON" : "INVALID_JSON");
 }
 
 function extractOptionsArray(parsed: unknown): unknown[] {
-  if (!parsed || typeof parsed !== "object") throw new Error("Invalid");
+  if (!parsed || typeof parsed !== "object") throw new Error("Invalid parsed object");
   const obj = parsed as Record<string, unknown>;
 
-  // Expected { options: [...] }
   if (Array.isArray(obj.options)) return obj.options as unknown[];
   if (Array.isArray(obj.screens)) return obj.screens as unknown[];
-  // If array directly
   if (Array.isArray(parsed)) return parsed as unknown[];
-  // If { screen: {...}, options... } fallback – wrap single
   if (obj.screen) return [parsed];
 
   throw new Error("No options array found");
@@ -76,9 +210,9 @@ export async function POST(req: NextRequest) {
     }
 
     const file = formData.get("image") as unknown as File | null;
-    const mode = (formData.get("mode") as string) || "initial"; // initial | refine
+    const mode = (formData.get("mode") as string) || "initial";
     const selectedDesignRaw = formData.get("selectedDesign") as string | null;
-    const previousDesignsRaw = formData.get("previousDesigns") as string | null; // optional to avoid repetition
+    const previousDesignsRaw = formData.get("previousDesigns") as string | null;
 
     if (!file) {
       return NextResponse.json({ error: "No sketch selected. Please upload a PNG or JPG." }, { status: 400 });
@@ -140,21 +274,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Build prompt based on mode
     let userPrompt: string;
     let temperature = 0.85;
 
     if (mode === "refine") {
       userPrompt = buildRefinement4OptionsPrompt(selectedDesign);
-      temperature = 0.8; // controlled refinement
+      temperature = 0.8;
     } else {
       userPrompt = buildInitial4OptionsPrompt();
-      temperature = 0.9; // more distinct initial options
-      // If we have previous designs to avoid, append info
+      temperature = 0.9;
       if (previousDesigns) {
         try {
-          const prevStr = JSON.stringify(previousDesigns).slice(0, 2000);
-          userPrompt += `\n\nAvoid repeating these previous designs (choose different palettes):\n${prevStr}\n`;
+          const prevStr = JSON.stringify(previousDesigns).slice(0, 1500);
+          userPrompt += `\n\nAvoid repeating these previous designs (different palettes, keep concise):\n${prevStr}\n`;
         } catch {}
       }
     }
@@ -165,20 +297,20 @@ export async function POST(req: NextRequest) {
       systemInstruction: SYSTEM_PROMPT,
       generationConfig: {
         temperature,
-        maxOutputTokens: 4000,
+        maxOutputTokens: 12000,
         responseMimeType: "application/json",
       },
     });
 
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("TIMEOUT")), 55000)
+      setTimeout(() => reject(new Error("TIMEOUT")), 65000)
     );
 
-    let content: string;
-    try {
+    // Helper to call Gemini
+    const callGemini = async (prompt: string): Promise<string> => {
       const result = await Promise.race([
         model.generateContent([
-          userPrompt,
+          prompt,
           {
             inlineData: {
               data: base64,
@@ -188,22 +320,27 @@ export async function POST(req: NextRequest) {
         ]),
         timeoutPromise,
       ]);
-
       const response = (result as Awaited<ReturnType<typeof model.generateContent>>).response;
-      content = response.text();
+      const text = response.text();
+      if (!text) throw new Error("EMPTY_RESPONSE");
+      return text;
+    };
 
-      if (!content) {
-        return NextResponse.json(
-          { error: "AI returned empty response. Try a clearer sketch.", code: "EMPTY_RESPONSE" },
-          { status: 502 }
-        );
-      }
+    let content: string;
+    try {
+      content = await callGemini(userPrompt);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "";
       if (msg === "TIMEOUT") {
         return NextResponse.json(
           { error: "AI exploration timed out. Please try again with a smaller image.", code: "TIMEOUT" },
           { status: 504 }
+        );
+      }
+      if (msg === "EMPTY_RESPONSE") {
+        return NextResponse.json(
+          { error: "AI returned empty response. Try a clearer sketch.", code: "EMPTY_RESPONSE" },
+          { status: 502 }
         );
       }
       console.error("[explore] Gemini error", e);
@@ -223,32 +360,116 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "AI exploration failed. Please try again.", code: "AI_FAILED" }, { status: 502 });
     }
 
+    // Robust JSON extraction with one automatic retry for truncated/malformed
     let parsed: unknown;
+    let isRetry = false;
+
+    const tryParse = (text: string): unknown => {
+      return extractJson(text);
+    };
+
     try {
-      parsed = extractJson(content);
-    } catch {
-      console.error("[explore] JSON extract failed", content.slice(0, 2000));
-      return NextResponse.json(
-        {
-          error: "We couldn't understand this sketch for exploration. Try a clearer image.",
-          code: "MALFORMED_AI_RESPONSE",
-        },
-        { status: 502 }
-      );
+      parsed = tryParse(content);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "";
+      const isTruncated = errMsg === "TRUNCATED_JSON" || content.length > 8000;
+      console.error("[explore] First parse failed, attempting retry", { isTruncated, error: errMsg, length: content.length });
+
+      // One automatic retry for malformed/truncated
+      try {
+        const retryPrompt = `Your previous response was incomplete or invalid JSON. Return ONLY a complete valid JSON object containing exactly 4 options. Do not include markdown, explanations, commentary, or prose. Keep all optional descriptive fields concise (e.g., visualHint: "logo" not paragraph). Preserve required fields: id, type, x,y,width,height, text/placeholder/action/alt. Keep design minimal but valid. Never identify as Zalo, WhatsApp, Instagram, Facebook, etc. Preserve original product concept and name. Explore visual design, not product identity. Original task: ${userPrompt.slice(0, 1500)}`;
+
+        // Slightly lower temperature for retry to be more deterministic and complete
+        const retryModel = genAI.getGenerativeModel({
+          model: modelName,
+          systemInstruction: SYSTEM_PROMPT,
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 12000,
+            responseMimeType: "application/json",
+          },
+        });
+
+        const retryTimeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("TIMEOUT")), 65000)
+        );
+
+        const retryResult = await Promise.race([
+          retryModel.generateContent([
+            retryPrompt,
+            {
+              inlineData: {
+                data: base64,
+                mimeType,
+              },
+            },
+          ]),
+          retryTimeout,
+        ]);
+
+        const retryContent = (retryResult as Awaited<ReturnType<typeof retryModel.generateContent>>).response.text();
+
+        if (!retryContent) throw new Error("EMPTY_RESPONSE");
+
+        console.log("[explore] Retry succeeded, length", retryContent.length);
+        parsed = tryParse(retryContent);
+        isRetry = true;
+        content = retryContent;
+      } catch (retryErr) {
+        const retryMsg = retryErr instanceof Error ? retryErr.message : "";
+        const isRetryTruncated = retryMsg === "TRUNCATED_JSON";
+        console.error("[explore] Retry also failed", { isRetryTruncated, error: retryMsg });
+
+        // Final safety: return accurate error, not misleading sketch error
+        if (isTruncated || isRetryTruncated) {
+          return NextResponse.json(
+            {
+              error: "Exploration couldn't complete. The AI response was incomplete. Try again.",
+              code: "TRUNCATED_RESPONSE",
+              isTruncated: true,
+            },
+            { status: 502 }
+          );
+        }
+
+        return NextResponse.json(
+          {
+            error: "Exploration couldn't complete. The AI response was incomplete. Try again.",
+            code: "MALFORMED_AI_RESPONSE",
+          },
+          { status: 502 }
+        );
+      }
     }
 
+    // Final safety check before returning
     let rawOptions: unknown[];
     try {
       rawOptions = extractOptionsArray(parsed);
     } catch {
-      console.error("[explore] no options array", JSON.stringify(parsed).slice(0, 2000));
+      console.error("[explore] no options array after parse", JSON.stringify(parsed).slice(0, 2000));
       return NextResponse.json(
-        { error: "AI returned invalid exploration format. Please try again.", code: "VALIDATION_FAILED" },
+        { error: "Exploration couldn't complete. The AI response was incomplete. Try again.", code: "VALIDATION_FAILED" },
         { status: 502 }
       );
     }
 
-    // Validate each option, keep successful, run aesthetic intelligence + layout fixing
+    if (!Array.isArray(rawOptions)) {
+      console.error("[explore] options is not array", typeof rawOptions);
+      return NextResponse.json(
+        { error: "Exploration couldn't complete. The AI response was incomplete. Try again.", code: "INVALID_FORMAT" },
+        { status: 502 }
+      );
+    }
+
+    // Confirm we have options, report count
+    if (rawOptions.length === 0) {
+      return NextResponse.json(
+        { error: "Exploration returned no options. Please try again.", code: "NO_OPTIONS" },
+        { status: 502 }
+      );
+    }
+
     const validOptions: UISchema[] = [];
     const errors: string[] = [];
 
@@ -260,8 +481,6 @@ export async function POST(req: NextRequest) {
           errors.push(`Option ${i + 1}: ${validation.error}`);
           continue;
         }
-        // Aesthetic intelligence pass before layout validation per pipeline:
-        // Gemini generation -> design intelligence -> aesthetic intelligence -> layout validation -> collision fixing -> PrototypeRenderer
         const aesthetic = aestheticIntelligencePass(validation.data.screen);
         const fixed = validateAndFixLayout(aesthetic.screen);
         validOptions.push({
@@ -273,8 +492,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // If we got at least 1, return it; if we expected 4 but got less, still return what we have
     if (validOptions.length === 0) {
+      console.error("[explore] All options failed validation", errors);
       return NextResponse.json(
         {
           error: "All exploration options failed validation. Keeping current prototype. Please try again.",
@@ -285,11 +504,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // If we got less than 4, log but return what we have
     if (validOptions.length < 4) {
       console.warn(`[explore] Only ${validOptions.length} valid options out of ${rawOptions.length}`, errors);
     }
 
+    // Never return 200 with malformed/incomplete JSON – we have validated all
     return NextResponse.json(
       {
         success: true,
@@ -297,6 +516,8 @@ export async function POST(req: NextRequest) {
           options: validOptions,
           mode,
           count: validOptions.length,
+          requested: 4,
+          isRetry,
         },
         model: modelName,
       },

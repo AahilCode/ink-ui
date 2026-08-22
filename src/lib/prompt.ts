@@ -643,7 +643,10 @@ Do not invent major features and do NOT remove features to look cleaner. A more 
 
 Each option should be independently usable as a polished prototype with intentional typography, strong aesthetic quality (clear hierarchy, intentional whitespace, consistent spacing, strong alignment, coherent contrast, consistent components, balanced composition), and SAME product features.
 
-All four must pass same aesthetic evaluation and feature preservation check – do not generate Option1=good, Option2=good, Option3=messy, Option4=random. All must contain same core functionality.`;
+All four must pass same aesthetic evaluation and feature preservation check – do not generate Option1=good, Option2=good, Option3=messy, Option4=random. All must contain same core functionality.
+
+CRITICAL PRODUCT IDENTITY RULE:
+Never identify the sketch as an existing real-world product or brand based on visual similarity. Never invent names such as Zalo, WhatsApp, Instagram, Facebook, etc. Preserve the original product/screen concept and name when available. Explore the visual design, not the product identity. Transform user's sketch → 4 visual design directions, not sketch → AI guesses a different product.`;
 
 export const REFINEMENT_4_OPTIONS_INSTRUCTION = `This is a refinement exploration of an already selected design.
 
@@ -659,6 +662,7 @@ Do NOT return to the original sketch.
 Do NOT completely redesign the product.
 Do NOT invent major features.
 Do NOT remove features during refinement.
+Never identify as existing brand like Zalo, WhatsApp, etc. Preserve original concept.
 
 Refinement means: "Make this design better." NOT "Redesign this product."
 
@@ -743,34 +747,40 @@ Each option must preserve:
 - same content/relationships
 - same functionality
 - same component count (do NOT optimize count for aesthetics)
+- original screen name when available – do NOT rename to unrelated brand/product
 
 But each option should explore a different visual/design direction through:
-- different color palette (e.g., Option1 minimal dark SaaS #4E1F6E #3E3E75, Option2 light editorial with teal #45A9A9 #98E8DE, Option3 bold colorful modern, Option4 clean soft UI – choose appropriate styles based on sketch, do not force these exact styles on every sketch)
-- typography personality that contributes to visual differences (e.g., Option1 modern geometric sans Outfit/Space Grotesk + minimal hierarchy, Option2 elegant serif Playfair Display + editorial layout, Option3 bold display Anton/Bebas Neue + expressive typography, Option4 humanist/rounded Nunito/Poppins + friendly interface – choose appropriate variations based on actual sketch, do not force exact styles, max 2-3 families, readable)
-- layout composition (centered vs left, compact vs spacious, symmetry vs intentional asymmetry, but preserve all sections)
-- spacing rhythm (consistent 8,12,16,24,32,48,64,96 scale, related smaller gaps, sections larger, spacing communicates relationships)
-- grid and alignment (implicit grid, share left/right edges, centers, column widths, gutters, form fields consistent widths, cards grid equal gaps)
-- component consistency (cards same radius/border/padding/typography/shadow, buttons consistent height/radius, inputs same height/border/radius)
-- contrast intelligence (primary highest, secondary moderate, supporting muted, decorative subtle)
-- visual density (balanced, not too empty/dense, depends on interface)
-- depth and surface (flat vs subtle borders vs soft shadows vs elevated cards, background→surface→elevated→primary action)
-- border radius language (luxury subtle 8px, professional moderate 12px, friendly large 16-20px, playful highly rounded 24px, brutalist minimal 2px)
-- visual assets (different illustration hints matching purpose, tasteful, additive not replacement, not random)
-- background treatment, hierarchy, composition and balance
+- different color palette (choose 4 distinct but appropriate palettes based on sketch, not forced)
+- typography personality (e.g., Option1 modern sans, Option2 elegant serif, Option3 bold display, Option4 rounded friendly – different per option, max 2-3 families, readable)
+- layout composition (centered vs left, compact vs spacious, but preserve all sections)
+- spacing rhythm (use scale 8,12,16,24,32,48,64,96, related smaller gaps, sections larger)
+- grid and alignment (implicit grid, share edges, form fields consistent widths, cards grid equal gaps)
+- component consistency (cards same radius/border/padding, buttons same height/radius, inputs same height)
+- visual assets via SHORT alt hints – keep extremely concise
 
-The four options must be meaningfully different in ART DIRECTION, not PRODUCT FEATURES, not four nearly identical versions, and typography + color + spacing + composition must be part of the difference – do not use same font/palette for every option. All four must contain essentially same features, sections, controls, content, navigation, information architecture. Ensure NO overlapping components within each option – apply layout validation and aesthetic critique. All four must pass same aesthetic evaluation and feature preservation check (every major section, every button, every input, every navigation item, every card, every image, every text/label must survive). A more aesthetically pleasing prototype with missing functionality is FAILURE.
+COMPACT OUTPUT RULES – CRITICAL FOR RELIABILITY:
+- Return ONLY JSON, no explanation before or after
+- Exactly 4 options in array
+- No markdown fences (no \`\`\`json)
+- No commentary, no prose outside JSON
+- Keep ALL optional descriptive fields extremely concise: visualHint, imageHint, icon, alt should be 1-3 words max, e.g., "logo", "avatar", "product", "chart", "icon: user", not paragraphs
+- Do NOT write long prose inside component fields
+- Do NOT duplicate unnecessary design information – keep colorPalette to 8 hex fields, typography to 4-6 short fields, layout to 3 fields, borderRadius/shadows/spacing minimal
+- Preserve required schema fields: id, type, x,y,width,height, text/placeholder/action/alt
 
-Return ONLY valid JSON matching this exact structure:
+The four options must be meaningfully different in ART DIRECTION, not PRODUCT FEATURES, not nearly identical. Ensure NO overlapping components within each option. All four must contain same core functionality. Never identify as Zalo, WhatsApp, Instagram, Facebook, etc. Preserve original product concept and name. Transform sketch → 4 visual design directions, not guess different product.
+
+Return ONLY valid JSON matching this exact structure, compact:
 {
   "options": [
-    { "screen": { "name": "...", "design": { "colorPalette": {...}, "typography": { "displayFont": "...", "headingFont": "...", "bodyFont": "...", "accentFont": "...", "fontPersonality": "...", "headingWeight": 700, "bodyWeight": 450, "letterSpacing": "0.01em" }, "layout": {...}, "borderRadius": {...}, "shadows": {...}, "spacing": {...} }, "components": [...] } },
-    { "screen": { "name": "...", "design": {...}, "components": [...] } },
-    { "screen": { "name": "...", "design": {...}, "components": [...] } },
-    { "screen": { "name": "...", "design": {...}, "components": [...] } }
+    { "screen": { "name": "preserve original name", "design": { "colorPalette": {"primary":"#hex","secondary":"#hex","accent":"#hex","background":"#hex","surface":"#hex","text":"#hex","muted":"#hex","border":"#hex"}, "typography": {"displayFont":"Inter","headingFont":"Outfit","bodyFont":"Inter","fontPersonality":"modern sans","headingWeight":700,"bodyWeight":450}, "layout": {"alignment":"center","spacing":"comfortable","style":"form"} }, "components": [{"id":"title","type":"heading","text":"LOGIN","x":300,"y":120,"width":400,"height":50,"visualHint":"logo"}] } },
+    { "screen": {...} },
+    { "screen": {...} },
+    { "screen": {...} }
   ]
 }
 
-Each screen must independently follow main schema rules (unique ids, x,y 0-1000 corrected for alignment, no overlap, min gap 20, spacing scale 8,12,16,24,32,48,64,96 for rhythm, form inputs same x/width vertical stack, cards grid equal gaps, component consistency, contrast hierarchy, visual density appropriate, depth intentional, border radius consistent, composition balanced, preserve every explicit feature). Typography intentional and readable, max 2-3 families per option. Return JSON only, no markdown.
+Each screen: unique ids, x,y 0-1000 corrected, no overlap, min gap 20, form inputs same x/width vertical stack gap 20-30 (e.g., x=300 w=400 y=300,380,460,540), cards grid x=50,360,670 w=280 y same, next row y+height+gap. Keep alt/visualHint short. Return JSON only.
 `;
 }
 
@@ -784,20 +794,15 @@ export function buildRefinement4OptionsPrompt(selectedDesign: unknown): string {
       const design = screen.design as Record<string, unknown> | undefined;
       const palette = design?.colorPalette as Record<string, unknown> | undefined;
       const typography = design?.typography as Record<string, unknown> | undefined;
-      const borderRadius = design?.borderRadius as Record<string, unknown> | undefined;
       const comps = screen.components as unknown[] | undefined;
       
       const parts: string[] = [];
-      parts.push(`Selected screen name: ${name}`);
-      if (palette?.primary) parts.push(`Selected primary: ${palette.primary}`);
-      if (palette?.background) parts.push(`Selected background: ${palette.background}`);
-      if (typography?.fontPersonality) parts.push(`Selected typography personality: ${typography.fontPersonality}`);
-      if (typography?.headingFont) parts.push(`Selected headingFont: ${typography.headingFont}`);
-      if (typography?.bodyFont) parts.push(`Selected bodyFont: ${typography.bodyFont}`);
-      if (borderRadius?.style) parts.push(`Selected border radius style: ${borderRadius.style}`);
+      parts.push(`Selected screen name: ${name} – preserve this name, do NOT rename to Zalo or other brand`);
+      if (palette?.primary) parts.push(`Selected primary: ${palette.primary} – explore different but keep same product idea`);
+      if (typography?.fontPersonality) parts.push(`Selected typography: ${typography.fontPersonality} – improve, not random change`);
       if (comps) parts.push(`Selected has ${comps.length} components – preserve same count and types, EVERY feature must survive`);
       
-      selectedInfo = `\n\nSELECTED DESIGN SOURCE OF TRUTH (preserve its aesthetic direction, typography, and EVERY feature):\n${parts.join("\n")}\n\nFull selected design JSON (truncated):\n${JSON.stringify(screen).slice(0, 4000)}\n`;
+      selectedInfo = `\n\nSELECTED DESIGN SOURCE OF TRUTH (preserve name, features, aesthetic direction):\n${parts.join("\n")}\n\nFull selected design JSON (truncated to 2500 chars for compactness):\n${JSON.stringify(screen).slice(0, 2500)}\n`;
     }
   } catch {
     // ignore
@@ -805,19 +810,23 @@ export function buildRefinement4OptionsPrompt(selectedDesign: unknown): string {
 
   return `${REFINEMENT_4_OPTIONS_INSTRUCTION}${selectedInfo}
 
-Generate FOUR refined variations based on the SELECTED option. Treat selected design as new source of truth – preserve its core structure, content, functionality, design direction, aesthetic personality, typography direction, and EVERY explicit feature (every button, every input, every card, every navigation item must survive – do NOT remove features during refinement).
+Generate FOUR refined variations based on SELECTED option. Treat selected design as new source of truth – preserve its core structure, content, functionality, design direction, and EVERY explicit feature.
 
 Make controlled differences that improve aesthetic quality while preserving all functionality:
-- Refinement 1: Improved spacing rhythm + stronger visual hierarchy (keep same fonts/palette, adjust gaps to 8px scale, make primary focal dominant, ensure primary CTA obvious)
-- Refinement 2: Better cards + stronger visual assets (keep typography, improve card radius/shadow/image treatment consistent, visual assets additive not replacement)
-- Refinement 3: More polished typography + navigation (improve pairing, letter spacing, introduce subtle accent font like handwritten for small labels if appropriate, make headings more distinctive, improve line length, keep body readable)
-- Refinement 4: More refined overall composition + balance + depth + contrast (overall polish, better whitespace, balance, depth background→surface→elevated→primary, contrast hierarchy, keep font personality)
+- Refinement 1: Improved spacing rhythm + stronger hierarchy (same fonts/palette, gaps to 8px scale, primary focal dominant)
+- Refinement 2: Better cards + stronger visual assets (improve card radius/shadow/image treatment consistent, visual assets additive)
+- Refinement 3: More polished typography + navigation (improve pairing, letter spacing, subtle accent font for small labels if appropriate, headings more distinctive, keep body readable)
+- Refinement 4: More refined overall composition + balance + depth + contrast (better whitespace, balance, depth, contrast)
 
-Do NOT randomly change overall typography direction – treat selected typography as part of design direction. Only change overall direction when it meaningfully improves. Max 2-3 families, readable. Ensure design system consistency (colors, typography, spacing, components, surfaces) – feels like one designed system.
+Do NOT randomly change overall typography direction – treat selected typography as part of design direction. Max 2-3 families, readable. Ensure design system consistency.
 
-These should feel like four increasingly refined interpretations of the selected design, NOT completely unrelated designs, and must preserve all features. Do NOT return to original sketch. Do NOT completely redesign. Do NOT invent major features and do NOT remove features.
+These should feel like four increasingly refined interpretations of selected design, NOT unrelated designs, and must preserve all features. Do NOT return to original sketch. Do NOT invent major features and do NOT remove features. Never identify as existing brand like Zalo, WhatsApp, etc.
 
-All four must still be derived from same original sketch image, but with selected design as guidance. Ensure NO overlapping, collision-free, aesthetically polished with clear hierarchy, intentional whitespace, consistent spacing, strong alignment, coherent contrast, consistent components, balanced composition, appropriate density, intentional typography, tasteful assets, AND preserve every explicit feature – run Feature Preservation Check (every major section, every button, every input, every navigation item, every card, every image, every text/label must survive, no component disappears solely because aesthetically unnecessary).
+COMPACT OUTPUT RULES:
+- Return ONLY JSON, exactly 4 options, no markdown, no commentary
+- Keep visualHint, imageHint, icon, alt extremely concise (1-3 words, e.g., "logo", "avatar", "chart", "icon: user")
+- No long prose, no duplicate metadata, keep required fields only
+- Preserve original screen concept and name, explore visual design not product identity
 
 Return ONLY valid JSON:
 {
@@ -829,6 +838,6 @@ Return ONLY valid JSON:
   ]
 }
 
-Return JSON only, no markdown.
+Return JSON only.
 `;
 }
