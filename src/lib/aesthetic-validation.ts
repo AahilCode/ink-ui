@@ -7,6 +7,7 @@
 import type { UIScreen, UIComponent, ColorPalette, DesignSystem } from "./ui-schema";
 
 const SPACING_SCALE = [8, 12, 16, 24, 32, 48, 64, 96];
+const GAP = 20; // minimum gap for feature preservation restore
 
 function snapToSpacingScale(value: number): number {
   let closest = SPACING_SCALE[0];
@@ -340,6 +341,11 @@ function aestheticCritique(screen: UIScreen, score: AestheticScore): CritiqueRes
 }
 
 function improveAesthetics(screen: UIScreen): UIScreen {
+  // Feature preservation – store original for restoration
+  const originalComponents = [...screen.components];
+  const originalCount = originalComponents.length;
+  const originalIds = new Set(originalComponents.map((c) => c.id));
+
   let components = [...screen.components];
   const personality = inferProductPersonality(screen.name, components);
   const borderRadius = getBorderRadiusForPersonality(personality);
@@ -496,10 +502,38 @@ function improveAesthetics(screen: UIScreen): UIScreen {
     (c) => c.type === "button" && (c as { action?: string }).action?.toLowerCase().includes("dashboard")
   );
   if (primaryCTA) {
-    // Ensure it's after inputs
     const maxInputY = Math.max(0, ...components.filter((c) => c.type === "input").map((c) => c.y + c.height));
     if (maxInputY > 0 && primaryCTA.y < maxInputY) {
       primaryCTA.y = maxInputY + 24;
+    }
+  }
+
+  // FEATURE PRESERVATION CHECK – ensure no component deleted to improve aesthetics
+  // Aesthetic quality must NEVER override feature preservation
+  if (components.length < originalCount) {
+    const currentIds = new Set(components.map((c) => c.id));
+    const missing = originalComponents.filter((c) => !currentIds.has(c.id));
+    // Restore missing components with safe positioning below current flow
+    let restoreY = Math.max(...components.map((c) => c.y + c.height), 0) + GAP;
+    for (const miss of missing) {
+      const restored = {
+        ...miss,
+        y: restoreY,
+        x: Math.max(20, Math.min(980 - miss.width, miss.x)),
+      };
+      components.push(restored);
+      restoreY += restored.height + GAP;
+    }
+  }
+
+  // Ensure every original id still exists – if any id lost, restore
+  const finalIds = new Set(components.map((c) => c.id));
+  for (const origId of originalIds) {
+    if (!finalIds.has(origId)) {
+      const orig = originalComponents.find((c) => c.id === origId);
+      if (orig) {
+        components.push({ ...orig });
+      }
     }
   }
 

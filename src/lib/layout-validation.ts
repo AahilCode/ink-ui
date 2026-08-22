@@ -37,8 +37,11 @@ function isCard(type: string): boolean {
 /**
  * Main layout validation and auto-fix
  * Returns corrected screen with no unintentional overlaps, consistent spacing, grid intelligence
+ * CRITICAL: Never solves layout problem by deleting component – preserves every explicit feature
  */
 export function validateAndFixLayout(screen: UIScreen): UIScreen {
+  const originalComponents = [...screen.components];
+  const originalCount = originalComponents.length;
   let components = [...screen.components];
 
   // Sort by y then x for reading order, but preserve original ids
@@ -197,8 +200,28 @@ export function validateAndFixLayout(screen: UIScreen): UIScreen {
     }
   }
 
-  // 4. FINAL COLLISION CHECK – ensure no overlapping
-  return finalCollisionCheck({ ...screen, components });
+  // 4. FINAL COLLISION CHECK – ensure no overlapping, NEVER delete to fix
+  const checked = finalCollisionCheck({ ...screen, components });
+
+  // FEATURE PRESERVATION – ensure no component deleted during layout fixes
+  // Aesthetic quality must NEVER override feature preservation
+  if (checked.components.length < originalCount) {
+    const currentIds = new Set(checked.components.map((c) => c.id));
+    const missing = originalComponents.filter((c) => !currentIds.has(c.id));
+    let restoreY = Math.max(...checked.components.map((c) => c.y + c.height), 0) + GAP;
+    const restored = [...checked.components];
+    for (const miss of missing) {
+      restored.push({
+        ...miss,
+        y: restoreY,
+        x: Math.max(20, Math.min(980 - miss.width, miss.x)),
+      });
+      restoreY += miss.height + GAP;
+    }
+    return { ...checked, components: restored };
+  }
+
+  return checked;
 }
 
 function arrangeCardsGrid(cards: UIComponent[], startX: number, startY: number, totalWidth: number, gap: number): UIComponent[] {
