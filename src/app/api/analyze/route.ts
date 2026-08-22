@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { SYSTEM_PROMPT, USER_INSTRUCTION } from "@/lib/prompt";
+import { SYSTEM_PROMPT, USER_INSTRUCTION, buildRegenerationPrompt } from "@/lib/prompt";
 import { validateUISchema } from "@/lib/ui-schema";
 import { validateAndFixLayout } from "@/lib/layout-validation";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
-// Free-tier vision-capable Gemini model for hackathon demo – updated to 3.5 per API deprecation notice
 const MODEL = "gemini-3.5-flash-lite";
 
 export const runtime = "nodejs";
@@ -59,7 +58,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Allow override via env for flexibility, but default is gemini-3.5-flash-lite
     const modelName = process.env.AI_MODEL || MODEL;
 
     let formData: FormData;
@@ -73,6 +71,27 @@ export async function POST(req: NextRequest) {
     }
 
     const file = formData.get("image") as unknown as File | null;
+    const isRegeneration = formData.get("isRegeneration") === "true";
+    const previousDesignRaw = formData.get("previousDesign") as string | null;
+    const regenerationCountRaw = formData.get("regenerationCount") as string | null;
+
+    let previousDesign: unknown = null;
+    let regenerationCount = 1;
+
+    if (isRegeneration) {
+      if (regenerationCountRaw) {
+        const parsed = parseInt(regenerationCountRaw, 10);
+        if (!isNaN(parsed) && parsed > 0) regenerationCount = parsed;
+      }
+      if (previousDesignRaw) {
+        try {
+          previousDesign = JSON.parse(previousDesignRaw);
+        } catch {
+          // Try as plain string if not JSON
+          previousDesign = previousDesignRaw;
+        }
+      }
+    }
 
     if (!file) {
       return NextResponse.json(
@@ -133,19 +152,28 @@ export async function POST(req: NextRequest) {
     const base64 = Buffer.from(arrayBuffer).toString("base64");
     const mimeType = fileType || "image/png";
 
-    // Gemini integration – image as inlineData, not text conversion
     const genAI = new GoogleGenerativeAI(apiKey);
+
+    // For regeneration, increase temperature to encourage meaningful variation
+    const temperature = isRegeneration ? 0.85 : 0.2;
+
     const model = genAI.getGenerativeModel({
       model: modelName,
       systemInstruction: SYSTEM_PROMPT,
       generationConfig: {
-        temperature: 0.2,
+        temperature,
         maxOutputTokens: 2000,
         responseMimeType: "application/json",
       },
     });
 
-    // Timeout handling – race with 28s timeout
+    // Build prompt – include regeneration instruction if needed
+    let finalUserPrompt = USER_INSTRUCTION;
+    if (isRegeneration) {
+      const regenPrompt = buildRegenerationPrompt(previousDesign, regenerationCount);
+      finalUserPrompt = `${USER_INSTRUCTION}\n\n${regenPrompt}`;
+    }
+
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error("TIMEOUT")), 28000)
     );
@@ -154,7 +182,7 @@ export async function POST(req: NextRequest) {
     try {
       const result = await Promise.race([
         model.generateContent([
-          USER_INSTRUCTION,
+          finalUserPrompt,
           {
             inlineData: {
               data: base64,
@@ -165,7 +193,6 @@ export async function POST(req: NextRequest) {
         timeoutPromise,
       ]);
 
-      // result is GenerateContentResult
       const response = (result as Awaited<ReturnType<typeof model.generateContent>>).response;
       content = response.text();
 
@@ -235,8 +262,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // LAYOUT VALIDATION AND SPATIAL REASONING – auto-fix overlapping, crowded layouts
-    // Preserve idea but fix accidental spatial problems before returning
     const fixedScreen = validateAndFixLayout(validation.data.screen);
 
     const finalData = {
@@ -249,6 +274,8 @@ export async function POST(req: NextRequest) {
         success: true,
         data: finalData,
         model: modelName,
+        isRegeneration,
+        regenerationCount: isRegeneration ? regenerationCount : undefined,
       },
       { status: 200 }
     );

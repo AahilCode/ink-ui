@@ -9,17 +9,35 @@ type ViewMode = "desktop" | "mobile";
 type Props = {
   status: AnalysisStatus;
   result: UISchema | null;
+  previousResult?: UISchema | null;
   error: string | null;
   progressMessage: string;
+  isRegenerating?: boolean;
+  regenerationCount?: number;
+  regenError?: string | null;
+  onRegenerate?: () => void;
+  onUndo?: () => void;
 };
 
-export function PrototypePanel({ status, result, error, progressMessage }: Props) {
+export function PrototypePanel({
+  status,
+  result,
+  previousResult,
+  error,
+  progressMessage,
+  isRegenerating,
+  regenerationCount = 0,
+  regenError,
+  onRegenerate,
+  onUndo,
+}: Props) {
   const [showJson, setShowJson] = useState(false);
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("desktop");
   const [resetKey, setResetKey] = useState(0);
 
   const componentCount = result?.screen.components.length ?? 0;
+  const hasPrevious = !!previousResult;
 
   const handleCopy = async () => {
     if (!result) return;
@@ -37,9 +55,7 @@ export function PrototypePanel({ status, result, error, progressMessage }: Props
       {/* Header */}
       <div className="flex h-[48px] items-center justify-between border-b border-[#3E3E75]/30 px-5">
         <div className="flex items-center gap-3">
-          <span className="text-[11px] font-[600] uppercase tracking-[0.18em] text-[#a8a6b8]">
-            Interactive Prototype
-          </span>
+          <span className="text-[11px] font-[600] uppercase tracking-[0.18em] text-[#a8a6b8]">Interactive Prototype</span>
           <div className="hidden items-center gap-1.5 rounded-full border border-[#3E3E75]/30 bg-[#242236] px-2.5 py-1 sm:flex">
             {status === "idle" && (
               <>
@@ -53,10 +69,19 @@ export function PrototypePanel({ status, result, error, progressMessage }: Props
                 <span className="text-[10px] font-medium tracking-wide text-[#98E8DE]">Analyzing</span>
               </>
             )}
-            {status === "success" && (
+            {status === "success" && !isRegenerating && (
               <>
                 <div className="size-1.5 rounded-full bg-[#45A9A9] shadow-[0_0_8px_rgba(69,169,169,0.5)]" />
-                <span className="text-[10px] font-medium tracking-wide text-[#98E8DE]">Ready • {componentCount}</span>
+                <span className="text-[10px] font-medium tracking-wide text-[#98E8DE]">
+                  Ready • {componentCount}
+                  {regenerationCount > 0 ? ` • v${regenerationCount + 1}` : ""}
+                </span>
+              </>
+            )}
+            {status === "success" && isRegenerating && (
+              <>
+                <div className="size-1.5 animate-pulse rounded-full bg-[#98E8DE] shadow-[0_0_8px_rgba(152,232,222,0.6)]" />
+                <span className="text-[10px] font-medium tracking-wide text-[#98E8DE]">Regenerating • v{regenerationCount + 2}</span>
               </>
             )}
             {status === "error" && (
@@ -83,9 +108,7 @@ export function PrototypePanel({ status, result, error, progressMessage }: Props
           <button
             onClick={() => setViewMode("desktop")}
             className={`rounded-full px-3 py-1 text-[11px] font-[500] tracking-wide transition-all ${
-              viewMode === "desktop"
-                ? "bg-[#4E1F6E] text-[#f0eef6] shadow-sm shadow-[#4E1F6E]/20"
-                : "text-[#a8a6b8] hover:text-[#98E8DE]"
+              viewMode === "desktop" ? "bg-[#4E1F6E] text-[#f0eef6] shadow-sm shadow-[#4E1F6E]/20" : "text-[#a8a6b8] hover:text-[#98E8DE]"
             }`}
           >
             Desktop
@@ -93,16 +116,14 @@ export function PrototypePanel({ status, result, error, progressMessage }: Props
           <button
             onClick={() => setViewMode("mobile")}
             className={`rounded-full px-3 py-1 text-[11px] font-[500] tracking-wide transition-all ${
-              viewMode === "mobile"
-                ? "bg-[#4E1F6E] text-[#f0eef6] shadow-sm"
-                : "text-[#a8a6b8] hover:text-[#98E8DE]"
+              viewMode === "mobile" ? "bg-[#4E1F6E] text-[#f0eef6] shadow-sm" : "text-[#a8a6b8] hover:text-[#98E8DE]"
             }`}
           >
             Mobile
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {status === "success" && (
             <>
               <button
@@ -119,10 +140,52 @@ export function PrototypePanel({ status, result, error, progressMessage }: Props
               </button>
             </>
           )}
+
+          {/* Regenerate – core new feature */}
+          {status === "success" && onRegenerate && (
+            <button
+              onClick={onRegenerate}
+              disabled={!!isRegenerating}
+              className="group/reg inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#4E1F6E] to-[#3E3E75] px-3.5 py-1 text-[11px] font-[600] tracking-wide text-[#f0eef6] shadow-[0_0_0_1px_rgba(78,31,110,0.3)_inset,0_0_12px_rgba(78,31,110,0.25)] transition-all hover:from-[#5e2585] hover:to-[#4a4a8a] hover:shadow-[0_0_16px_rgba(78,31,110,0.35)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
+            >
+              {isRegenerating ? (
+                <>
+                  <span className="size-3 animate-spin rounded-full border-2 border-[#f0eef6]/20 border-t-[#98E8DE]" />
+                  <span>Regenerating</span>
+                </>
+              ) : (
+                <>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    className="transition-transform group-hover/reg:rotate-180 duration-500"
+                  >
+                    <path d="M13.5 8C13.5 10.8 11.3 13 8.5 13C5.7 13 3.5 10.8 3.5 8C3.5 5.2 5.7 3 8.5 3C10 3 11.4 3.7 12.3 4.8" strokeLinecap="round" />
+                    <path d="M12.3 3V4.8H10.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span>Regenerate</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {hasPrevious && status === "success" && !isRegenerating && onUndo && (
+            <button
+              onClick={onUndo}
+              className="rounded-full border border-[#45A9A9]/30 bg-[#45A9A9]/10 px-3 py-1 text-[11px] font-[500] text-[#98E8DE] hover:text-[#f0eef6] hover:bg-[#45A9A9]/20 hover:border-[#45A9A9]/40 transition-colors"
+            >
+              Undo
+            </button>
+          )}
+
           <button
             onClick={handleReset}
-            disabled={status !== "success"}
-            className="rounded-full border border-[#4E1F6E]/30 bg-[#4E1F6E]/15 px-3 py-1 text-[11px] font-[500] text-[#f0eef6]/80 hover:text-[#f0eef6] hover:bg-[#4E1F6E]/25 disabled:opacity-30 disabled:cursor-not-allowed"
+            disabled={status !== "success" || !!isRegenerating}
+            className="rounded-full border border-[#3E3E75]/30 bg-[#242236] px-3 py-1 text-[11px] font-[500] text-[#a8a6b8] hover:text-[#f0eef6] hover:bg-[#2d2b42] disabled:opacity-30 disabled:cursor-not-allowed"
           >
             Reset
           </button>
@@ -231,6 +294,7 @@ export function PrototypePanel({ status, result, error, progressMessage }: Props
 
           {status === "success" && result && (
             <div className="relative z-10 flex flex-1 flex-col overflow-hidden bg-[#13111e]">
+              {/* Success banner */}
               <div className="flex items-center justify-between border-b border-[#3E3E75]/30 bg-[#1d1b2a] px-4 py-2.5">
                 <div className="flex items-center gap-2.5">
                   <div className="flex size-6 items-center justify-center rounded-full bg-[#45A9A9] text-[#13111e] shadow-[0_0_8px_rgba(69,169,169,0.4)]">
@@ -239,23 +303,52 @@ export function PrototypePanel({ status, result, error, progressMessage }: Props
                     </svg>
                   </div>
                   <div>
-                    <p className="text-[13px] font-[650] tracking-[-0.01em] text-[#f0eef6]">PROTOTYPE READY</p>
+                    <p className="text-[13px] font-[650] tracking-[-0.01em] text-[#f0eef6]">
+                      {isRegenerating ? "REGENERATING DESIGN..." : "PROTOTYPE READY"}
+                    </p>
                     <p className="text-[11px] text-[#a8a6b8]">
-                      {result.screen.name} • {componentCount} components • interactive
+                      {result.screen.name} • {componentCount} components • {isRegenerating ? "creating variation" : "interactive"}
+                      {regenerationCount > 0 ? ` • ${regenerationCount} regenerations` : ""}
                     </p>
                   </div>
                 </div>
                 <div className="hidden sm:flex items-center gap-1.5">
-                  <div className="size-1.5 animate-pulse rounded-full bg-[#45A9A9]" />
-                  <span className="text-[11px] font-medium text-[#98E8DE]">Live</span>
+                  <div className={`size-1.5 rounded-full ${isRegenerating ? "bg-[#98E8DE] animate-pulse" : "bg-[#45A9A9] animate-pulse"}`} />
+                  <span className="text-[11px] font-medium text-[#98E8DE]">{isRegenerating ? "Regenerating" : "Live"}</span>
                 </div>
               </div>
+
+              {/* Regenerating overlay – keeps prototype visible per spec */}
+              {isRegenerating && (
+                <div className="border-b border-[#45A9A9]/20 bg-gradient-to-r from-[#4E1F6E]/15 via-[#3E3E75]/10 to-[#45A9A9]/15 px-4 py-2.5 backdrop-blur">
+                  <div className="flex items-center gap-2.5">
+                    <div className="size-4 animate-spin rounded-full border-2 border-[#98E8DE]/20 border-t-[#98E8DE]" />
+                    <span className="text-[12px] font-medium text-[#98E8DE]">{progressMessage}</span>
+                    <span className="ml-auto text-[11px] text-[#a8a6b8]/60">Original sketch reused • No re-upload</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Regen error – keep prototype intact */}
+              {regenError && !isRegenerating && (
+                <div className="border-b border-[#4E1F6E]/30 bg-[#4E1F6E]/10 px-4 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[12px] leading-[1.4] text-[#f0eef6]/80">{regenError}</p>
+                    <button
+                      onClick={onRegenerate}
+                      className="shrink-0 rounded-full bg-[#4E1F6E] px-3 py-1 text-[11px] font-medium text-white hover:bg-[#5e2585]"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {showJson && (
                 <div className="border-b border-[#3E3E75]/30 bg-[#0f0e17] p-3">
                   <div className="rounded-[10px] border border-[#3E3E75]/30 bg-[#1d1b2a] overflow-hidden">
                     <div className="flex items-center justify-between border-b border-[#3E3E75]/20 px-3 py-2">
-                      <span className="font-mono text-[11px] text-[#a8a6b8]">UI JSON • validated</span>
+                      <span className="font-mono text-[11px] text-[#a8a6b8]">UI JSON • validated • v{regenerationCount + 1}</span>
                       <button onClick={handleCopy} className="text-[11px] text-[#98E8DE] hover:text-[#f0eef6]">
                         {copied ? "Copied!" : "Copy"}
                       </button>
@@ -267,15 +360,17 @@ export function PrototypePanel({ status, result, error, progressMessage }: Props
                 </div>
               )}
 
-              <div className="flex-1 overflow-auto bg-[#181622] p-2 sm:p-3">
+              <div className={`flex-1 overflow-auto bg-[#181622] p-2 sm:p-3 transition-opacity ${isRegenerating ? "opacity-70" : "opacity-100"}`}>
                 <PrototypeRenderer schema={result} viewMode={viewMode} resetKey={resetKey} />
               </div>
 
               <div className="border-t border-[#3E3E75]/30 bg-[#1d1b2a] px-4 py-2 flex items-center justify-between text-[11px] text-[#a8a6b8]">
                 <span>
-                  Inputs are functional • {viewMode === "mobile" ? "Mobile 390px" : "Desktop auto"} • Click SIGN IN → dashboard
+                  Inputs are functional • {viewMode === "mobile" ? "Mobile 390px" : "Desktop auto"} • {hasPrevious ? "Undo available" : "Regenerate for new design"}
                 </span>
-                <span className="hidden sm:inline text-[#98E8DE]/60">IMAGE → AI → VALID JSON → REACT</span>
+                <span className="hidden sm:inline text-[#98E8DE]/60">
+                  {regenerationCount > 0 ? `${regenerationCount + 1} designs • ` : ""}IMAGE → AI → VALID JSON → REACT
+                </span>
               </div>
             </div>
           )}
@@ -285,9 +380,7 @@ export function PrototypePanel({ status, result, error, progressMessage }: Props
               <div className="flex items-center gap-2">
                 <span className="text-[10px] tracking-widest text-[#a8a6b8]/40">CANVAS</span>
                 <div className="h-3 w-px bg-[#3E3E75]/30" />
-                <span className="text-[11px] text-[#a8a6b8]/60">
-                  {status === "analyzing" ? progressMessage : "No output yet"}
-                </span>
+                <span className="text-[11px] text-[#a8a6b8]/60">{status === "analyzing" ? progressMessage : "No output yet"}</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="h-1 w-8 rounded-full bg-[#3E3E75]/40" />

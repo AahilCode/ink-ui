@@ -52,7 +52,7 @@ Make most important information visually dominant using size, weight, spacing, c
 Generate layout that remains visually coherent at different viewport sizes.
 
 8. DESIGN INFERENCE
-Use visual context to infer reasonable decisions not explicitly drawn: if dashboard but no colors → cohesive dashboard color system, if cards but no spacing → consistent spacing, if headings but no typography → professional hierarchy, if roughly aligned → align professionally.
+Use visual context to infer reasonable design decisions not explicitly drawn: if dashboard but no colors → cohesive dashboard color system, if cards but no spacing → consistent spacing, if headings but no typography → professional hierarchy, if roughly aligned → align professionally.
 
 VISUAL POLISH LAYER:
 
@@ -260,3 +260,81 @@ Apply:
 Do NOT invent major features. Only reorganize, resize, align, space existing components. Enhance DESIGN, not idea.
 
 Return ONLY valid JSON matching schema. Supported types: heading, text, input, button, card, image. Include optional design.colorPalette and descriptive alt/visualHint. Ensure NO overlapping components – if overlap detected, fix before returning. Return JSON only, no markdown.`;
+
+export const REGENERATION_INSTRUCTION = `This is a REGENERATION request.
+
+Create a meaningfully different visual interpretation of the same low-fidelity sketch.
+
+Preserve the user's product idea, content, components, and structural intent.
+
+Do NOT add major features or remove important components.
+
+Instead, explore a different professional design direction through:
+
+- color palette
+- typography
+- spacing
+- composition
+- card treatment
+- button styling
+- visual assets
+- background treatment
+- visual hierarchy
+
+The result must feel noticeably different from the previous generation while remaining faithful to the original sketch.`;
+
+export function buildRegenerationPrompt(previousDesign: unknown, regenerationCount: number): string {
+  const count = Math.max(1, regenerationCount);
+  let prevInfo = "";
+  
+  try {
+    if (previousDesign && typeof previousDesign === "object") {
+      const d = previousDesign as Record<string, unknown>;
+      const design = (d as { screen?: { design?: unknown } }).screen?.design || d;
+      
+      if (design && typeof design === "object") {
+        const designObj = design as Record<string, unknown>;
+        const palette = designObj.colorPalette as Record<string, unknown> | undefined;
+        const typography = designObj.typography as Record<string, unknown> | undefined;
+        const layout = designObj.layout as Record<string, unknown> | undefined;
+        
+        const parts: string[] = [];
+        
+        if (palette?.primary) {
+          parts.push(`Previous primary color was ${palette.primary} – avoid repeating it, choose a meaningfully different hue`);
+        }
+        if (palette?.background) {
+          parts.push(`Previous background was ${palette.background} – explore a different background treatment`);
+        }
+        if (typography?.fontFamily) {
+          parts.push(`Previous typography was ${typography.fontFamily} – try a different font family style`);
+        }
+        if (layout?.style) {
+          parts.push(`Previous layout style was ${layout.style} – explore a different composition`);
+        }
+        if (layout?.spacing) {
+          parts.push(`Previous spacing was ${layout.spacing} – try ${layout.spacing === "compact" ? "spacious or comfortable" : layout.spacing === "spacious" ? "compact or comfortable" : "a different spacing"}`);
+        }
+        
+        if (parts.length > 0) {
+          prevInfo = `\n\nPREVIOUS DESIGN TO AVOID REPEATING:\n${parts.map((p, i) => `${i + 1}. ${p}`).join("\n")}\n\nIf the previous design was a dark purple dashboard, the next generation could explore a light/teal editorial style while keeping the same underlying structure. Do not force a specific palette – let your design judgment choose an appropriate alternative that feels fresh and distinct.\n`;
+        }
+      }
+    }
+  } catch {
+    // ignore parsing errors, continue with generic regeneration
+  }
+
+  const variationHints = [
+    "Explore a light, airy, minimal direction with generous whitespace and subtle accents",
+    "Explore a bold, dark, editorial direction with strong contrast and dramatic typography",
+    "Explore a soft, friendly, rounded direction with warm colors and approachable styling",
+    "Explore a sharp, technical, data-focused direction with crisp borders and structured grid",
+    "Explore a vibrant, energetic direction with saturated accents and dynamic composition",
+    "Explore a muted, sophisticated direction with restrained palette and refined details",
+  ];
+  
+  const variation = variationHints[(count - 1) % variationHints.length];
+
+  return `${REGENERATION_INSTRUCTION}${prevInfo}\nREGENERATION #${count} – VARIATION DIRECTION: ${variation}\n\nThis is regeneration #${count} of the same sketch. The user wants another professional interpretation – it should feel like "Give me another professional design interpretation of this same idea" not "analyze again". Keep components, content, and structure, but make visual design noticeably different. Return ONLY valid JSON matching the schema with new design tokens.\n`;
+}

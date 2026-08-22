@@ -16,7 +16,11 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<AnalysisStatus>("idle");
   const [result, setResult] = useState<UISchema | null>(null);
+  const [previousResult, setPreviousResult] = useState<UISchema | null>(null);
   const [progressMessage, setProgressMessage] = useState("Reading your sketch...");
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [regenerationCount, setRegenerationCount] = useState(0);
+  const [regenError, setRegenError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -31,8 +35,11 @@ export default function Home() {
       setFile(f);
       setPreviewUrl(url);
       setError(null);
+      setRegenError(null);
       setStatus("idle");
       setResult(null);
+      setPreviousResult(null);
+      setRegenerationCount(0);
     },
     [previewUrl]
   );
@@ -42,8 +49,11 @@ export default function Home() {
     setFile(null);
     setPreviewUrl(null);
     setError(null);
+    setRegenError(null);
     setStatus("idle");
     setResult(null);
+    setPreviousResult(null);
+    setRegenerationCount(0);
   }, [previewUrl]);
 
   const handleAnalyze = useCallback(async () => {
@@ -54,7 +64,10 @@ export default function Home() {
 
     setStatus("analyzing");
     setError(null);
+    setRegenError(null);
     setResult(null);
+    setPreviousResult(null);
+    setRegenerationCount(0);
 
     const messages = [
       "Reading your sketch...",
@@ -100,14 +113,94 @@ export default function Home() {
     }
   }, [file]);
 
+  const handleRegenerate = useCallback(async () => {
+    if (!file) {
+      setError("No sketch available for regeneration. Please upload again.");
+      return;
+    }
+    if (!result) {
+      setError("No prototype to regenerate. Analyze a sketch first.");
+      return;
+    }
+
+    setIsRegenerating(true);
+    setRegenError(null);
+    // Keep existing prototype visible initially per spec – don't clear result
+    setProgressMessage("Regenerating design...");
+
+    const nextCount = regenerationCount + 1;
+
+    const regenMessages = [
+      "Reimagining color palette...",
+      "Exploring new typography...",
+      "Rethinking spacing & composition...",
+      "Crafting fresh visual assets...",
+    ];
+    let idx = 0;
+    setProgressMessage(regenMessages[0]);
+    const interval = setInterval(() => {
+      idx = Math.min(idx + 1, regenMessages.length - 1);
+      setProgressMessage(regenMessages[idx]);
+    }, 1600);
+
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      form.append("isRegeneration", "true");
+      form.append("previousDesign", JSON.stringify(result));
+      form.append("regenerationCount", String(nextCount));
+
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        body: form,
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Regeneration failed. Please try again.");
+      }
+
+      if (!json?.data) {
+        throw new Error("Invalid regeneration response.");
+      }
+
+      // Save current to previous for undo/history
+      setPreviousResult(result);
+      setResult(json.data as UISchema);
+      setRegenerationCount(nextCount);
+      setStatus("success");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Regeneration failed. Please try again.";
+      setRegenError(message);
+      // Keep existing prototype intact per spec
+    } finally {
+      clearInterval(interval);
+      setIsRegenerating(false);
+      setProgressMessage("Reading your sketch...");
+    }
+  }, [file, result, regenerationCount]);
+
+  const handleUndo = useCallback(() => {
+    if (!previousResult) return;
+    // Restore previous without calling Gemini
+    const current = result;
+    setResult(previousResult);
+    setPreviousResult(current); // allow redo-like toggle, or clear? Keep current as previous for toggle
+    setRegenError(null);
+    // If we want to decrement count, we can but keep count for variation tracking
+    // Optionally keep count as is, or decrement
+    setRegenerationCount((c) => Math.max(0, c - 1));
+  }, [previousResult, result]);
+
   const hasImage = !!file && !!previewUrl;
   const isAnalyzing = status === "analyzing";
+  const showRegenerating = isRegenerating;
 
   return (
     <div className="flex min-h-screen flex-col bg-[#13111e]">
       <Header />
 
-      {/* Hero / Intro – dark with purple → teal gradients */}
       <div className="relative border-b border-[#3E3E75]/30">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute left-[-10%] top-[-40%] h-[600px] w-[600px] rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,rgba(78,31,110,0.22),transparent_70%)] blur-[1px]" />
@@ -125,9 +218,11 @@ export default function Home() {
                     <span className="absolute inline-flex size-2 animate-ping rounded-full bg-[#45A9A9]/60" />
                     <span className="relative inline-flex size-2 rounded-full bg-[#45A9A9]" />
                   </span>
-                  <span className="text-[11px] font-medium tracking-[0.14em] text-[#f0eef6]/80">WORKSPACE • GEMINI 3.5 • FREE</span>
+                  <span className="text-[11px] font-medium tracking-[0.14em] text-[#f0eef6]/80">
+                    WORKSPACE • REGENERATE • GEMINI 3.5
+                  </span>
                 </div>
-                <span className="text-[11px] tracking-wide text-[#a8a6b8]/60">Camera → AI → Prototype</span>
+                <span className="text-[11px] tracking-wide text-[#a8a6b8]/60">Camera → AI → Prototype → Regenerate</span>
               </div>
 
               <h1 className="text-pretty text-[34px] sm:text-[52px] font-[650] leading-[0.95] tracking-[-0.03em] text-[#f0eef6]">
@@ -140,19 +235,19 @@ export default function Home() {
 
               <p className="mt-4 max-w-[520px] text-pretty text-[15px] sm:text-[17px] leading-[1.6] tracking-[-0.01em] text-[#a8a6b8]">
                 Turn a hand-drawn interface into a working prototype.
-                <span className="text-[#a8a6b8]/60"> Photograph your sketch, let AI understand it, and get a live UI.</span>
+                <span className="text-[#a8a6b8]/60"> Regenerate for new design interpretations without re-uploading.</span>
               </p>
             </div>
 
             <div className="hidden lg:flex flex-col items-end gap-3">
               <div className="flex items-center gap-2 rounded-full border border-[#3E3E75]/30 bg-[#1d1b2a] px-3 py-1.5">
                 <kbd className="rounded bg-[#2d2b42] px-1.5 py-0.5 font-mono text-[10px] text-[#98E8DE]">⌘</kbd>
-                <kbd className="rounded bg-[#2d2b42] px-1.5 py-0.5 font-mono text-[10px] text-[#98E8DE]">U</kbd>
-                <span className="ml-1 text-[11px] text-[#a8a6b8]/70">Upload</span>
+                <kbd className="rounded bg-[#2d2b42] px-1.5 py-0.5 font-mono text-[10px] text-[#98E8DE]">R</kbd>
+                <span className="ml-1 text-[11px] text-[#a8a6b8]/70">Regenerate</span>
               </div>
               <div className="text-right text-[11px] leading-[1.4] text-[#a8a6b8]/40">
-                <div>Hackathon • #4E1F6E #3E3E75 #45A9A9 #98E8DE</div>
-                <div>Gemini 3.5 Flash Lite • Free tier</div>
+                <div>Hackathon • Regenerate Design • Free</div>
+                <div>Original sketch reused • No re-upload</div>
               </div>
             </div>
           </div>
@@ -166,20 +261,31 @@ export default function Home() {
             fileName={file?.name || null}
             fileSize={file?.size || null}
             error={error}
-            isAnalyzing={isAnalyzing}
+            isAnalyzing={isAnalyzing || isRegenerating}
             onFileSelect={handleFileSelect}
             onRemove={handleRemove}
           />
-          <PrototypePanel status={status} result={result} error={error} progressMessage={progressMessage} />
+          <PrototypePanel
+            status={status}
+            result={result}
+            previousResult={previousResult}
+            error={error}
+            progressMessage={progressMessage}
+            isRegenerating={showRegenerating}
+            regenerationCount={regenerationCount}
+            regenError={regenError}
+            onRegenerate={handleRegenerate}
+            onUndo={handleUndo}
+          />
         </div>
 
-        <AnalyzeButton disabled={!hasImage || isAnalyzing} isAnalyzing={isAnalyzing} hasImage={hasImage} onClick={handleAnalyze} />
+        <AnalyzeButton disabled={!hasImage || isAnalyzing || isRegenerating} isAnalyzing={isAnalyzing} hasImage={hasImage} onClick={handleAnalyze} />
 
-        {error && status !== "error" && (
+        {(error && status !== "error") || regenError ? (
           <div className="mx-auto mt-2 max-w-[520px] rounded-[12px] border border-[#4E1F6E]/30 bg-[#4E1F6E]/15 px-4 py-3 text-center text-[12px] text-[#f0eef6]">
-            {error}
+            {regenError || error}
           </div>
-        )}
+        ) : null}
       </main>
 
       <HowItWorks />
@@ -189,11 +295,11 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <div className="size-6 rounded-[7px] bg-gradient-to-br from-[#4E1F6E] to-[#45A9A9] text-[#f0eef6] flex items-center justify-center text-[10px] font-bold">INK</div>
             <span className="text-[12.5px] tracking-[-0.01em] text-[#a8a6b8]/70">
-              INK UI • © {new Date().getFullYear()} • #4E1F6E #3E3E75 #45A9A9 #98E8DE • Gemini 3.5
+              INK UI • © {new Date().getFullYear()} • Regenerate • Gemini 3.5
             </span>
           </div>
           <div className="flex items-center gap-4 text-[12px] text-[#a8a6b8]/40">
-            <span className="hidden sm:inline">Image in memory only</span>
+            <span className="hidden sm:inline">Original sketch reused</span>
             <span className="hidden sm:inline">•</span>
             <span>API: POST /api/analyze</span>
           </div>
