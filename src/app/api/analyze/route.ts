@@ -3,8 +3,9 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { SYSTEM_PROMPT, USER_INSTRUCTION, buildRegenerationPrompt } from "@/lib/prompt";
 import { validateUISchema } from "@/lib/ui-schema";
 import { validateAndFixLayout } from "@/lib/layout-validation";
+import { aestheticIntelligencePass } from "@/lib/aesthetic-validation";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 const MODEL = "gemini-3.5-flash-lite";
 
@@ -13,34 +14,24 @@ export const maxDuration = 60;
 
 function extractJson(content: string): unknown {
   const trimmed = content.trim();
-
   try {
     return JSON.parse(trimmed);
-  } catch {
-    // continue
-  }
-
+  } catch {}
   const fenceRegex = /```(?:json)?\s*([\s\S]*?)\s*```/i;
   const match = trimmed.match(fenceRegex);
   if (match) {
     try {
       return JSON.parse(match[1].trim());
-    } catch {
-      // continue
-    }
+    } catch {}
   }
-
   const first = trimmed.indexOf("{");
   const last = trimmed.lastIndexOf("}");
   if (first !== -1 && last !== -1 && last > first) {
     const slice = trimmed.slice(first, last + 1);
     try {
       return JSON.parse(slice);
-    } catch {
-      // continue
-    }
+    } catch {}
   }
-
   throw new Error("Could not extract JSON from AI response");
 }
 
@@ -50,8 +41,7 @@ export async function POST(req: NextRequest) {
     if (!apiKey) {
       return NextResponse.json(
         {
-          error:
-            "AI service not configured. Missing GEMINI_API_KEY. Add it to .env.local and restart the server.",
+          error: "AI service not configured. Missing GEMINI_API_KEY. Add it to .env.local and restart the server.",
           code: "MISSING_API_KEY",
         },
         { status: 500 }
@@ -64,10 +54,7 @@ export async function POST(req: NextRequest) {
     try {
       formData = await req.formData();
     } catch {
-      return NextResponse.json(
-        { error: "Invalid request format. Expected multipart/form-data." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid request format. Expected multipart/form-data." }, { status: 400 });
     }
 
     const file = formData.get("image") as unknown as File | null;
@@ -87,17 +74,13 @@ export async function POST(req: NextRequest) {
         try {
           previousDesign = JSON.parse(previousDesignRaw);
         } catch {
-          // Try as plain string if not JSON
           previousDesign = previousDesignRaw;
         }
       }
     }
 
     if (!file) {
-      return NextResponse.json(
-        { error: "No sketch selected. Please upload a PNG or JPG." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No sketch selected. Please upload a PNG or JPG." }, { status: 400 });
     }
 
     const fileType = (file as File).type || "";
@@ -124,28 +107,19 @@ export async function POST(req: NextRequest) {
       fileType.startsWith("image/");
 
     if (!hasValidExt) {
-      return NextResponse.json(
-        { error: "Unsupported file. Please upload PNG, JPG or JPEG.", code: "UNSUPPORTED_TYPE" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Unsupported file. Please upload PNG, JPG or JPEG.", code: "UNSUPPORTED_TYPE" }, { status: 400 });
     }
 
     const size = (file as File).size;
     if (size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        {
-          error: `File too large (${(size / 1024 / 1024).toFixed(1)}MB). Maximum is 10MB.`,
-          code: "FILE_TOO_LARGE",
-        },
+        { error: `File too large (${(size / 1024 / 1024).toFixed(1)}MB). Maximum is 10MB.`, code: "FILE_TOO_LARGE" },
         { status: 400 }
       );
     }
 
     if (size === 0) {
-      return NextResponse.json(
-        { error: "Empty file. Please upload a valid sketch image." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Empty file. Please upload a valid sketch image." }, { status: 400 });
     }
 
     const arrayBuffer = await (file as File).arrayBuffer();
@@ -153,8 +127,6 @@ export async function POST(req: NextRequest) {
     const mimeType = fileType || "image/png";
 
     const genAI = new GoogleGenerativeAI(apiKey);
-
-    // For regeneration, increase temperature to encourage meaningful variation
     const temperature = isRegeneration ? 0.85 : 0.2;
 
     const model = genAI.getGenerativeModel({
@@ -167,7 +139,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Build prompt – include regeneration instruction if needed
     let finalUserPrompt = USER_INSTRUCTION;
     if (isRegeneration) {
       const regenPrompt = buildRegenerationPrompt(previousDesign, regenerationCount);
@@ -198,10 +169,7 @@ export async function POST(req: NextRequest) {
 
       if (!content) {
         return NextResponse.json(
-          {
-            error: "AI returned empty response. Try a clearer sketch with darker lines.",
-            code: "EMPTY_RESPONSE",
-          },
+          { error: "AI returned empty response. Try a clearer sketch with darker lines.", code: "EMPTY_RESPONSE" },
           { status: 502 }
         );
       }
@@ -227,10 +195,7 @@ export async function POST(req: NextRequest) {
           { status: 429 }
         );
       }
-      return NextResponse.json(
-        { error: "AI analysis failed. Please try again.", code: "AI_FAILED" },
-        { status: 502 }
-      );
+      return NextResponse.json({ error: "AI analysis failed. Please try again.", code: "AI_FAILED" }, { status: 502 });
     }
 
     let parsed: unknown;
@@ -240,8 +205,7 @@ export async function POST(req: NextRequest) {
       console.error("[analyze] JSON extract failed", content.slice(0, 1000));
       return NextResponse.json(
         {
-          error:
-            "We couldn't understand this sketch. Try a clearer image with darker lines and visible components.",
+          error: "We couldn't understand this sketch. Try a clearer image with darker lines and visible components.",
           code: "MALFORMED_AI_RESPONSE",
         },
         { status: 502 }
@@ -262,11 +226,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const fixedScreen = validateAndFixLayout(validation.data.screen);
+    // Aesthetic intelligence pass + layout validation pipeline:
+    // Gemini generation -> design intelligence -> aesthetic intelligence -> layout validation -> collision fixing -> PrototypeRenderer
+    const aestheticResult = aestheticIntelligencePass(validation.data.screen);
+    const finalFixedScreen = validateAndFixLayout(aestheticResult.screen);
 
     const finalData = {
       ...validation.data,
-      screen: fixedScreen,
+      screen: finalFixedScreen,
     };
 
     return NextResponse.json(
@@ -276,16 +243,14 @@ export async function POST(req: NextRequest) {
         model: modelName,
         isRegeneration,
         regenerationCount: isRegeneration ? regenerationCount : undefined,
+        aestheticScore: aestheticResult.score,
       },
       { status: 200 }
     );
   } catch (err: unknown) {
     console.error("[analyze] unexpected", err);
     return NextResponse.json(
-      {
-        error: "Something went wrong during analysis. Please try again.",
-        code: "UNKNOWN_ERROR",
-      },
+      { error: "Something went wrong during analysis. Please try again.", code: "UNKNOWN_ERROR" },
       { status: 500 }
     );
   }

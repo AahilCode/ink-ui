@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { SYSTEM_PROMPT, buildInitial4OptionsPrompt, buildRefinement4OptionsPrompt } from "@/lib/prompt";
 import { validateUISchema, UISchema } from "@/lib/ui-schema";
 import { validateAndFixLayout } from "@/lib/layout-validation";
+import { aestheticIntelligencePass } from "@/lib/aesthetic-validation";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
@@ -247,7 +248,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate each option, keep successful, fix layout
+    // Validate each option, keep successful, run aesthetic intelligence + layout fixing
     const validOptions: UISchema[] = [];
     const errors: string[] = [];
 
@@ -259,7 +260,10 @@ export async function POST(req: NextRequest) {
           errors.push(`Option ${i + 1}: ${validation.error}`);
           continue;
         }
-        const fixed = validateAndFixLayout(validation.data.screen);
+        // Aesthetic intelligence pass before layout validation per pipeline:
+        // Gemini generation -> design intelligence -> aesthetic intelligence -> layout validation -> collision fixing -> PrototypeRenderer
+        const aesthetic = aestheticIntelligencePass(validation.data.screen);
+        const fixed = validateAndFixLayout(aesthetic.screen);
         validOptions.push({
           ...validation.data,
           screen: fixed,

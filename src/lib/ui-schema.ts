@@ -1,7 +1,7 @@
 /**
  * Strict TypeScript schema for INK UI structured output
  * Supported types: heading, text, input, button, card, image
- * Extended with design-intelligence + visual polish + typography personality
+ * Extended with design-intelligence + visual polish + typography + aesthetic intelligence
  */
 
 export const SUPPORTED_TYPES = ["heading", "text", "input", "button", "card", "image"] as const;
@@ -88,13 +88,11 @@ export interface ColorPalette {
 }
 
 export interface TypographySystem {
-  // Legacy single field for backward compat
   fontFamily?: string;
   headingWeight?: number;
   bodyWeight?: number;
   headingSize?: string;
   bodySize?: string;
-  // New intelligent font personality fields
   displayFont?: string;
   headingFont?: string;
   bodyFont?: string;
@@ -103,7 +101,7 @@ export interface TypographySystem {
   letterSpacing?: string;
   headingLineHeight?: string;
   bodyLineHeight?: string;
-  fontPersonality?: string; // e.g., "elegant serif", "modern geometric sans", etc.
+  fontPersonality?: string;
 }
 
 export interface LayoutSystem {
@@ -112,10 +110,50 @@ export interface LayoutSystem {
   style?: string;
 }
 
+export interface BorderRadiusSystem {
+  base?: string;
+  card?: string;
+  button?: string;
+  input?: string;
+  style?: string;
+}
+
+export interface ShadowsSystem {
+  style?: string;
+  card?: string;
+  elevated?: string;
+}
+
+export interface DepthSystem {
+  style?: string;
+  card?: string;
+  elevated?: string;
+  background?: string;
+}
+
+export interface SpacingSystem {
+  scale?: number[];
+  density?: string;
+  style?: string;
+}
+
+export interface AestheticSystem {
+  hierarchy?: string;
+  density?: string;
+  depth?: string;
+  composition?: string;
+  personality?: string;
+}
+
 export interface DesignSystem {
   colorPalette?: ColorPalette;
   typography?: TypographySystem;
   layout?: LayoutSystem;
+  borderRadius?: BorderRadiusSystem;
+  shadows?: ShadowsSystem;
+  depth?: DepthSystem;
+  spacing?: SpacingSystem;
+  aesthetic?: AestheticSystem;
 }
 
 export interface UIScreen {
@@ -183,7 +221,6 @@ function validateDesign(design: unknown): DesignSystem | undefined {
     if (isNumber(tp.bodyWeight)) typo.bodyWeight = tp.bodyWeight;
     if (isString(tp.headingSize)) typo.headingSize = tp.headingSize;
     if (isString(tp.bodySize)) typo.bodySize = tp.bodySize;
-    // New fields
     if (isString(tp.displayFont)) typo.displayFont = tp.displayFont;
     if (isString(tp.headingFont)) typo.headingFont = tp.headingFont;
     if (isString(tp.bodyFont)) typo.bodyFont = tp.bodyFont;
@@ -207,6 +244,60 @@ function validateDesign(design: unknown): DesignSystem | undefined {
     }
     if (isString(lp.style)) layout.style = lp.style;
     if (Object.keys(layout).length > 0) out.layout = layout;
+  }
+
+  // Optional aesthetic extensions – keep backward compatible, accept if present
+  if (d.borderRadius && typeof d.borderRadius === "object") {
+    const br = d.borderRadius as Record<string, unknown>;
+    const outBr: BorderRadiusSystem = {};
+    if (isString(br.base)) outBr.base = br.base;
+    if (isString(br.card)) outBr.card = br.card;
+    if (isString(br.button)) outBr.button = br.button;
+    if (isString(br.input)) outBr.input = br.input;
+    if (isString(br.style)) outBr.style = br.style;
+    if (Object.keys(outBr).length > 0) out.borderRadius = outBr;
+  }
+
+  if (d.shadows && typeof d.shadows === "object") {
+    const sh = d.shadows as Record<string, unknown>;
+    const outSh: ShadowsSystem = {};
+    if (isString(sh.style)) outSh.style = sh.style;
+    if (isString(sh.card)) outSh.card = sh.card;
+    if (isString(sh.elevated)) outSh.elevated = sh.elevated;
+    if (Object.keys(outSh).length > 0) out.shadows = outSh;
+  }
+
+  if (d.depth && typeof d.depth === "object") {
+    const dp = d.depth as Record<string, unknown>;
+    const outDp: DepthSystem = {};
+    if (isString(dp.style)) outDp.style = dp.style;
+    if (isString(dp.card)) outDp.card = dp.card;
+    if (isString(dp.elevated)) outDp.elevated = dp.elevated;
+    if (isString(dp.background)) outDp.background = dp.background;
+    if (Object.keys(outDp).length > 0) out.depth = outDp;
+  }
+
+  if (d.spacing && typeof d.spacing === "object") {
+    const sp = d.spacing as Record<string, unknown>;
+    const outSp: SpacingSystem = {};
+    if (Array.isArray(sp.scale)) {
+      const nums = (sp.scale as unknown[]).filter(isNumber) as number[];
+      if (nums.length > 0) outSp.scale = nums;
+    }
+    if (isString(sp.density)) outSp.density = sp.density;
+    if (isString(sp.style)) outSp.style = sp.style;
+    if (Object.keys(outSp).length > 0) out.spacing = outSp;
+  }
+
+  if (d.aesthetic && typeof d.aesthetic === "object") {
+    const ae = d.aesthetic as Record<string, unknown>;
+    const outAe: AestheticSystem = {};
+    if (isString(ae.hierarchy)) outAe.hierarchy = ae.hierarchy;
+    if (isString(ae.density)) outAe.density = ae.density;
+    if (isString(ae.depth)) outAe.depth = ae.depth;
+    if (isString(ae.composition)) outAe.composition = ae.composition;
+    if (isString(ae.personality)) outAe.personality = ae.personality;
+    if (Object.keys(outAe).length > 0) out.aesthetic = outAe;
   }
 
   return Object.keys(out).length > 0 ? out : undefined;
