@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { SYSTEM_PROMPT, USER_INSTRUCTION } from "@/lib/prompt";
 import { validateUISchema } from "@/lib/ui-schema";
+import { validateAndFixLayout } from "@/lib/layout-validation";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
@@ -234,10 +235,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // LAYOUT VALIDATION AND SPATIAL REASONING – auto-fix overlapping, crowded layouts
+    // Preserve idea but fix accidental spatial problems before returning
+    const fixedScreen = validateAndFixLayout(validation.data.screen);
+
+    const finalData = {
+      ...validation.data,
+      screen: fixedScreen,
+    };
+
     return NextResponse.json(
       {
         success: true,
-        data: validation.data,
+        data: finalData,
         model: modelName,
       },
       { status: 200 }
